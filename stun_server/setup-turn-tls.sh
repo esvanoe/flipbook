@@ -21,6 +21,51 @@ if ! command -v certbot &> /dev/null; then
     apt-get install -y certbot
 fi
 
+# Warn about cloud provider firewall requirements
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚠️  IMPORTANT: Cloud Provider Firewall Configuration Required"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "This script requires the following ports to be open in your cloud provider's"
+echo "firewall/security group:"
+echo ""
+echo "  • Port 80 (TCP) - For Let's Encrypt certificate validation"
+echo "  • Port 5349 (TCP/UDP) - For TLS/DTLS TURN connections"
+echo ""
+echo "Common cloud providers:"
+echo "  • AWS: Security Group - Add inbound rules:"
+echo "      - Port 80 (TCP) from 0.0.0.0/0"
+echo "      - Port 5349 (TCP) from 0.0.0.0/0"
+echo "      - Port 5349 (UDP) from 0.0.0.0/0"
+echo "  • Google Cloud: Firewall Rules - Allow tcp:80, tcp:5349, udp:5349"
+echo "  • Azure: Network Security Group - Add inbound rules for ports 80, 5349"
+echo "  • DigitalOcean: Cloud Firewall - Add rules for ports 80, 5349"
+echo "  • Linode: Firewall - Add rules for ports 80, 5349"
+echo ""
+echo "The script will configure iptables, but your cloud provider's firewall"
+echo "must also allow these ports for Let's Encrypt validation and TLS connections."
+echo ""
+read -p "Have you configured your cloud provider's firewall to allow ports 80 and 5349? (y/N): " FIREWALL_READY
+
+if [ "$FIREWALL_READY" != "y" ] && [ "$FIREWALL_READY" != "Y" ]; then
+    echo ""
+    echo "Please configure your cloud provider's firewall first, then run this script again."
+    echo ""
+    SERVER_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || curl -s icanhazip.com || echo "YOUR_SERVER_IP")
+    echo "After configuring, you can verify ports are accessible:"
+    echo "  • Port 80: curl -I http://${SERVER_IP}"
+    echo "  • Port 5349: nc -zv ${SERVER_IP} 5349"
+    echo "  • Or use an online tool: https://www.yougetsignal.com/tools/open-ports/"
+    echo ""
+    exit 0
+fi
+
+echo ""
+echo "✓ Proceeding with TLS setup..."
+echo ""
+echo "Note: If certificate validation fails, verify port 80 is accessible from the internet."
+echo ""
+
 # Get domain name
 read -p "Enter your domain name for TURN server (e.g., turn.example.com): " DOMAIN
 
@@ -44,8 +89,24 @@ if [ "$DOMAIN_IP" != "$SERVER_IP" ]; then
 fi
 
 # Get certificate
+# Note: --standalone mode requires port 80 to be open for ACME HTTP-01 challenge
 echo "Obtaining SSL certificate..."
+echo "  Note: This requires port 80 (TCP) to be accessible for Let's Encrypt validation"
+
+# Temporarily open port 80 in firewall for certbot
+echo "  Temporarily opening port 80 in firewall..."
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables-save > /etc/iptables/rules.v4
+
+# Run certbot
 certbot certonly --standalone -d ${DOMAIN} --non-interactive --agree-tos --register-unsafely-without-email
+
+# Note: Port 80 is left open - you can remove the rule later if desired:
+# iptables -D INPUT -p tcp --dport 80 -j ACCEPT
+# iptables-save > /etc/iptables/rules.v4
+#
+# Alternative: If you cannot open port 80, use DNS challenge instead:
+# certbot certonly --manual --preferred-challenges dns -d ${DOMAIN}
 
 # Check if certificate was obtained
 if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
@@ -85,7 +146,9 @@ TLS
 TLS
 
 # Update iptables to allow TLS ports
-echo "Updating firewall rules..."
+echo "Updating iptables firewall rules..."
+echo "  Note: This only configures iptables. Ensure your cloud provider's"
+echo "        firewall also allows port 5349 (TCP/UDP) for TLS/DTLS connections."
 iptables -A INPUT -p tcp --dport 5349 -j ACCEPT
 iptables -A INPUT -p udp --dport 5349 -j ACCEPT
 iptables-save > /etc/iptables/rules.v4

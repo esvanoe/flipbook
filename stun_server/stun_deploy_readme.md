@@ -149,7 +149,9 @@ sudo ./setup-turn-tls.sh
 
 **Requirements**:
 - Domain name with DNS pointing to server
-- Ports 80 and 5349 open (for certificate validation)
+- Port 80 (TCP) open for Let's Encrypt ACME HTTP-01 challenge validation
+- Port 5349 (TCP/UDP) open for TLS/DTLS TURN connections
+- **Note**: The script automatically opens port 80 in iptables before running certbot
 
 **Note**: TLS is optional. UDP TURN works fine without it, but TLS adds encryption for the signaling.
 
