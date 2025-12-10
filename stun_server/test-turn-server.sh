@@ -56,11 +56,13 @@ fi
 echo "[4/5] Testing STUN functionality..."
 if command -v turnutils_stunclient &> /dev/null; then
     echo "  Testing STUN on ${PUBLIC_IP}..."
-    if turnutils_stunclient ${PUBLIC_IP} -v 2>&1 | grep -q "Mapped address"; then
+    STUN_OUTPUT=$(turnutils_stunclient ${PUBLIC_IP} 2>&1)
+    if echo "$STUN_OUTPUT" | grep -q "Mapped address"; then
         echo "✓ STUN test successful"
+        echo "$STUN_OUTPUT" | grep "Mapped address" | head -n 1
     else
         echo "⚠ STUN test returned unexpected result"
-        turnutils_stunclient ${PUBLIC_IP} -v
+        echo "$STUN_OUTPUT"
     fi
 else
     echo "⚠ turnutils_stunclient not found"

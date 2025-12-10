@@ -143,7 +143,6 @@ dtls-listening-port=5349
 
 # Enable TLS/DTLS
 TLS
-TLS
 
 # Update iptables to allow TLS ports
 echo "Updating iptables firewall rules..."
