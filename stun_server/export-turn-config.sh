@@ -21,6 +21,25 @@ if [ -z "$PUBLIC_IP" ]; then
     read -p "Enter your server's public IP address: " PUBLIC_IP
 fi
 
+# Check if TLS is configured
+TLS_ENABLED=false
+TLS_DOMAIN=""
+if [ -f /etc/turnserver.conf ] && grep -q "tls-listening-port" /etc/turnserver.conf; then
+    TLS_ENABLED=true
+    # Try to extract domain from certificate path
+    CERT_PATH=$(grep "^cert=" /etc/turnserver.conf | cut -d'=' -f2 | head -1)
+    if [ -n "$CERT_PATH" ]; then
+        # Extract domain from /etc/letsencrypt/live/DOMAIN/fullchain.pem
+        TLS_DOMAIN=$(echo "$CERT_PATH" | sed -n 's|.*/live/\([^/]*\)/.*|\1|p')
+    fi
+    if [ -z "$TLS_DOMAIN" ]; then
+        read -p "TLS is enabled. Enter your TURN server domain name (or press Enter to use IP): " TLS_DOMAIN
+        if [ -z "$TLS_DOMAIN" ]; then
+            TLS_DOMAIN="$PUBLIC_IP"
+        fi
+    fi
+fi
+
 echo "=== TURN Server Configuration Export ==="
 echo ""
 echo "Save this configuration for your main bitm-ng server:"
@@ -39,6 +58,17 @@ webrtc:
       username: "${TURN_USERNAME}"
       credential: "${TURN_PASSWORD}"
 YAML
+
+if [ "$TLS_ENABLED" = true ]; then
+    cat <<TLSYAML
+    - urls: "turns:${TLS_DOMAIN}:5349?transport=tcp"
+      username: "${TURN_USERNAME}"
+      credential: "${TURN_PASSWORD}"
+    - urls: "turn:${TLS_DOMAIN}:5349?transport=udp"
+      username: "${TURN_USERNAME}"
+      credential: "${TURN_PASSWORD}"
+TLSYAML
+fi
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Environment Variables Format"
@@ -66,7 +96,20 @@ cat <<JSON
         "urls": "turn:${PUBLIC_IP}:3478?transport=udp",
         "username": "${TURN_USERNAME}",
         "credential": "${TURN_PASSWORD}"
+      }$(if [ "$TLS_ENABLED" = true ]; then cat <<TLSJSON
+      ,
+      {
+        "urls": "turns:${TLS_DOMAIN}:5349?transport=tcp",
+        "username": "${TURN_USERNAME}",
+        "credential": "${TURN_PASSWORD}"
+      },
+      {
+        "urls": "turn:${TLS_DOMAIN}:5349?transport=udp",
+        "username": "${TURN_USERNAME}",
+        "credential": "${TURN_PASSWORD}"
       }
+TLSJSON
+fi)
     ]
   }
 }
@@ -84,7 +127,20 @@ const iceServers: RTCIceServer[] = [
     urls: 'turn:${PUBLIC_IP}:3478?transport=udp',
     username: '${TURN_USERNAME}',
     credential: '${TURN_PASSWORD}'
+  }$(if [ "$TLS_ENABLED" = true ]; then cat <<TLSTS
+  ,
+  {
+    urls: 'turns:${TLS_DOMAIN}:5349?transport=tcp',
+    username: '${TURN_USERNAME}',
+    credential: '${TURN_PASSWORD}'
+  },
+  {
+    urls: 'turn:${TLS_DOMAIN}:5349?transport=udp',
+    username: '${TURN_USERNAME}',
+    credential: '${TURN_PASSWORD}'
   }
+TLSTS
+fi)
 ];
 TS
 echo ""
@@ -92,10 +148,16 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Public IP: ${PUBLIC_IP}"
-echo "TURN URL: turn:${PUBLIC_IP}:3478"
+echo "TURN URL (UDP): turn:${PUBLIC_IP}:3478?transport=udp"
 echo "STUN URL: stun:${PUBLIC_IP}:3478"
 echo "Username: ${TURN_USERNAME}"
 echo "Password: ${TURN_PASSWORD}"
+if [ "$TLS_ENABLED" = true ]; then
+    echo ""
+    echo "TLS/DTLS Enabled:"
+    echo "  TLS URL: turns:${TLS_DOMAIN}:5349?transport=tcp"
+    echo "  DTLS URL: turn:${TLS_DOMAIN}:5349?transport=udp"
+fi
 echo ""
 echo "⚠️  IMPORTANT: Save these credentials securely!"
 echo "   They are required for the main server configuration."
