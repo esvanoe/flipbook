@@ -1,5 +1,6 @@
 # Sensitive configuration files - DO NOT COMMIT
 config/turn-server-config.json
+config/deployment-config.md
 config/*-exported.json
 config/*-secrets.json
 config/*-credentials.json

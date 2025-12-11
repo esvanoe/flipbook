@@ -5,21 +5,21 @@ This file stores deployment-specific configuration information for the CuddlePhi
 ## Server Information
 
 ### DNS
-- **Domain**: `www.remote-login.us`
+- **Domain**: `www.example.com`
 - **Note**: DNS entry configured for this server
 
 ## TURN Server Configuration
 
-**Status**: ✅ Configured
+**Status**: ⚠️ Configuration Required
 
 **Server Details:**
-- **IP Address**: `54.176.155.54`
+- **IP Address**: `YOUR_SERVER_IP`
 - **STUN Port**: `3478` (UDP)
 - **TURN Port**: `3478` (UDP) - Standard TURN
 - **TLS/DTLS Port**: `5349` (TCP for TLS, UDP for DTLS) - *Requires domain name, not IP*
-- **Username**: `bitm-ng-turn`
-- **Credential**: `31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4`
-- **TLS Domain**: `turn.remote-login.us` (for TLS/DTLS connections on port 5349)
+- **Username**: `YOUR_TURN_USERNAME`
+- **Credential**: `YOUR_TURN_CREDENTIAL`
+- **TLS Domain**: `turn.example.com` (for TLS/DTLS connections on port 5349)
 
 ### Configuration Formats
 
@@ -27,52 +27,52 @@ This file stores deployment-specific configuration information for the CuddlePhi
 ```yaml
 webrtc:
   stunServers:
-    - urls: "stun:54.176.155.54:3478"
+    - urls: "stun:YOUR_SERVER_IP:3478"
     - urls: "stun:stun.l.google.com:19302"
     - urls: "stun:stun1.l.google.com:19302"
   turnServers:
-    - urls: "turn:54.176.155.54:3478?transport=udp"
-      username: "bitm-ng-turn"
-      credential: "31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4"
+    - urls: "turn:YOUR_SERVER_IP:3478?transport=udp"
+      username: "YOUR_TURN_USERNAME"
+      credential: "YOUR_TURN_CREDENTIAL"
     # TLS/DTLS support (port 5349 - requires domain name for TLS certificate)
-    - urls: "turns:turn.remote-login.us:5349?transport=tcp"
-      username: "bitm-ng-turn"
-      credential: "31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4"
-    - urls: "turn:turn.remote-login.us:5349?transport=udp"
-      username: "bitm-ng-turn"
-      credential: "31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4"
+    - urls: "turns:turn.example.com:5349?transport=tcp"
+      username: "YOUR_TURN_USERNAME"
+      credential: "YOUR_TURN_CREDENTIAL"
+    - urls: "turn:turn.example.com:5349?transport=udp"
+      username: "YOUR_TURN_USERNAME"
+      credential: "YOUR_TURN_CREDENTIAL"
 ```
 
 #### Environment Variables
 ```bash
-export TURN_SERVER_IP="54.176.155.54"
+export TURN_SERVER_IP="YOUR_SERVER_IP"
 export TURN_SERVER_PORT="3478"
 export TURN_SERVER_TLS_PORT="5349"
-export TURN_USERNAME="bitm-ng-turn"
-export TURN_PASSWORD="31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4"
+export TURN_USERNAME="YOUR_TURN_USERNAME"
+export TURN_PASSWORD="YOUR_TURN_CREDENTIAL"
 ```
 
 #### TypeScript/JavaScript
 ```typescript
 const iceServers: RTCIceServer[] = [
-  { urls: 'stun:54.176.155.54:3478' },
+  { urls: 'stun:YOUR_SERVER_IP:3478' },
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   {
-    urls: 'turn:54.176.155.54:3478?transport=udp',
-    username: 'bitm-ng-turn',
-    credential: '31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4'
+    urls: 'turn:YOUR_SERVER_IP:3478?transport=udp',
+    username: 'YOUR_TURN_USERNAME',
+    credential: 'YOUR_TURN_CREDENTIAL'
   },
   // TLS/DTLS support (port 5349 - requires domain name for TLS certificate)
   {
-    urls: 'turns:turn.remote-login.us:5349?transport=tcp',
-    username: 'bitm-ng-turn',
-    credential: '31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4'
+    urls: 'turns:turn.example.com:5349?transport=tcp',
+    username: 'YOUR_TURN_USERNAME',
+    credential: 'YOUR_TURN_CREDENTIAL'
   },
   {
-    urls: 'turn:turn.remote-login.us:5349?transport=udp',
-    username: 'bitm-ng-turn',
-    credential: '31080844b31e7d67ce0f3ccab396246040e5948d3bfb380aff1e8ae68ecf11a4'
+    urls: 'turn:turn.example.com:5349?transport=udp',
+    username: 'YOUR_TURN_USERNAME',
+    credential: 'YOUR_TURN_CREDENTIAL'
   }
 ];
 ```
@@ -81,11 +81,11 @@ const iceServers: RTCIceServer[] = [
 
 **STUN vs TURN Clarification:**
 - **STUN servers** (stun.l.google.com, etc.): These are public fallback STUN servers provided by Google. They're correct and used as backups when the primary STUN server is unavailable.
-- **TURN server**: This is YOUR server at `54.176.155.54` / `turn.remote-login.us` - this is what handles the actual media relay.
+- **TURN server**: This is YOUR server - this is what handles the actual media relay.
 
 ⚠️ **TLS Port Clarification**: 
-- **Standard TURN**: Uses port `3478` (UDP) - can use IP address (`54.176.155.54`)
-- **TLS/DTLS TURN**: Uses port `5349` (TCP for TLS, UDP for DTLS) - **requires domain name** (`turn.remote-login.us`) because TLS certificates are domain-based
+- **Standard TURN**: Uses port `3478` (UDP) - can use IP address
+- **TLS/DTLS TURN**: Uses port `5349` (TCP for TLS, UDP for DTLS) - **requires domain name** because TLS certificates are domain-based
 
 ⚠️ **Export Script Limitation**: The `export-turn-config.sh` script was updated to detect and include TLS endpoints, but if it was run before TLS setup or doesn't detect TLS properly, it won't show TLS endpoints. The script now:
 - Detects TLS by checking `/etc/turnserver.conf` for `tls-listening-port`
@@ -123,9 +123,11 @@ stun:
 - TURN server configuration will be integrated into the application config
 - DNS entry will be used for reverse proxy configuration (Caddy/Nginx)
 - All sensitive credentials should be stored in environment variables, not in code
+- **Copy this template to `deployment-config.md` and fill in your actual values**
+- **Never commit `deployment-config.md` - it contains sensitive information**
 
 ---
 
-**Last Updated**: 2025-12-10  
-**Status**: ✅ TURN server configured
+**Last Updated**: Template created  
+**Status**: ⚠️ Configuration Required
 
