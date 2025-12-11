@@ -1,0 +1,24 @@
+# Sensitive configuration files - DO NOT COMMIT
+config/turn-server-config.json
+config/*-exported.json
+config/*-secrets.json
+config/*-credentials.json
+*.secrets.json
+*.credentials.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
