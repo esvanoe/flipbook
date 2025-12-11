@@ -1,0 +1,50 @@
+# BitM-NG Reverse Proxy Configuration
+# For use with Docker Compose
+
+# Replace with your domain
+www.remote-login.us {
+    # Enable automatic HTTPS with Let's Encrypt
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+
+    # Reverse proxy to application
+    reverse_proxy app:58082 {
+        # WebSocket support for Socket.IO
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # WebSocket upgrade
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+
+    # Security headers
+    header {
+        # Remove server information
+        -Server
+        -X-Powered-By
+        
+        # Security headers
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Compression
+    encode gzip zstd
+}
+
+# Redirect HTTP to HTTPS
+http://www.remote-login.us {
+    redir https://www.remote-login.us{uri} permanent
+}
+

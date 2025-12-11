@@ -1,0 +1,21 @@
+{
+  "targets": {
+    "example": {
+      "name": "Example Site",
+      "url": "https://example.com",
+      "description": "Example target website"
+    },
+    "google": {
+      "name": "Google",
+      "url": "https://www.google.com",
+      "description": "Google homepage"
+    }
+    "usaa": {
+      "name": "USAA",
+      "url": "https://www.usaa.com",
+      "description": "USAA homepage"
+    }
+  },
+  "default": "USAA"
+}
+

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: bitm-ng
+    ports:
+      - "58082:58082"
+    environment:
+      - SERVER_PORT=58082
+      - SERVER_HOST=0.0.0.0
+      - ADMIN_ALLOWED_IPS=${ADMIN_ALLOWED_IPS:-127.0.0.1}
+      - ADMIN_SOCKET_KEY=${ADMIN_SOCKET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - BROWSER_MAX_INSTANCES=${BROWSER_MAX_INSTANCES:-10}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+    volumes:
+      - ../user_data:/app/user_data
+      - ../config:/app/config:ro
+      - ../logs:/app/logs
+    restart: unless-stopped
+    shm_size: '2gb'
+    # Required for Xvfb and Chromium
+    privileged: false
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    networks:
+      - bitm-network
+
+networks:
+  bitm-network:
+    driver: bridge
+
