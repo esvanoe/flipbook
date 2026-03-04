@@ -1,11 +1,7 @@
-# Sensitive configuration files - DO NOT COMMIT
-config/turn-server-config.json
-config/deployment-config.md
-config/*-exported.json
-config/*-secrets.json
-config/*-credentials.json
-*.secrets.json
-*.credentials.json
+# Sensitive runtime config — copy config.example.json and fill in values
+config.json
+targets.json
+payload.txt
 
 # Environment files
 .env
@@ -19,18 +15,20 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Playwright browser user data (stolen session storage)
+user_data/
+
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Runtime data
-user_data/
-*.pid
-*.seed
-*.pid.lock
+# Archives
+*.tgz
+*.tar.gz
+*.zip
+
+# Old project copies
+bitm-nf/
 
 # IDE
 .vscode/

@@ -1,4 +1,4 @@
-# CuddlePhish-NG
+# BITM-NG
 
 Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of CuddlePhish.
 
@@ -18,7 +18,7 @@ Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of Cuddle
 
 ```bash
 # Clone / unzip to server
-cd cuddlephish-ng
+cd bitm-ng
 
 # Install Node deps
 npm install
@@ -96,18 +96,22 @@ npm run build
 npm start
 ```
 
-### Docker
-
-```bash
-docker build -t cuddlephish-ng .
-docker run -d -p 3000:3000 --name cuddlephish cuddlephish-ng
-```
-
-Server starts on `http://0.0.0.0:3000` by default. Override with env vars:
+Server starts on `http://0.0.0.0:80` by default. Override with env vars:
 
 ```bash
 PORT=8080 HOST=127.0.0.1 npm start
 ```
+
+### Docker
+
+> **Note:** `config.json`, `targets.json`, and `payload.txt` are gitignored — create them locally before building.
+
+```bash
+docker build -t bitm-ng .
+docker run -d -p 3000:3000 --name bitm-ng bitm-ng
+```
+
+The Docker image sets `PORT=3000` internally; the container listens on port 3000.
 
 ---
 
@@ -127,9 +131,9 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 | URL | Description |
 |---|---|
-| `http://HOST:3000/admin` | Admin panel (IP-gated by `admin_ips`) |
-| `http://HOST:3000/phish` | Victim canvas page |
-| `http://HOST:3000/healthz` | Health check |
+| `http://HOST/admin` | Admin panel (IP-gated by `admin_ips`) |
+| `http://HOST/phish` | Victim canvas page |
+| `http://HOST/healthz` | Health check |
 
 ---
 
@@ -176,7 +180,7 @@ This opens a headed Playwright browser with the stolen session pre-loaded.
 
 ## Reverse proxy (Caddy)
 
-Edit `Caddyfile`, replace `example.com` with your domain, then:
+Edit `Caddyfile`, replace `example.com` with your domain. The Caddyfile proxies to `localhost:3000` — ensure `PORT=3000` is set when running the server, then:
 
 ```bash
 caddy run --config Caddyfile
