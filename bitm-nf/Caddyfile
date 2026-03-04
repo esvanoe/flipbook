@@ -1,0 +1,26 @@
+# CuddlePhish-NG Caddyfile
+# Replace example.com with your phishing domain
+
+example.com {
+    reverse_proxy localhost:3000
+
+    # WebSocket support (required for Socket.IO)
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @websockets {
+        reverse_proxy localhost:3000
+    }
+
+    # Serve favicon
+    handle /favicon.ico {
+        root * /app/favicons
+        file_server
+    }
+
+    log {
+        output file /var/log/cuddlephish/access.log
+        format console
+    }
+}

