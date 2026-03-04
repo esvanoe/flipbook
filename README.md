@@ -1,4 +1,4 @@
-# CuddlePhish-NG
+# BITM-NG
 
 Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of CuddlePhish.
 
@@ -99,8 +99,8 @@ npm start
 ### Docker
 
 ```bash
-docker build -t cuddlephish-ng .
-docker run -d -p 3000:3000 --name cuddlephish cuddlephish-ng
+docker build -t BITM-NG .
+docker run -d -p 3000:3000 --name bitm BITM-NG
 ```
 
 Server starts on `http://0.0.0.0:3000` by default. Override with env vars:
