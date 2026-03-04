@@ -18,7 +18,7 @@ Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of Cuddle
 
 ```bash
 # Clone / unzip to server
-cd cuddlephish-ng
+cd bitm-ng
 
 # Install Node deps
 npm install
@@ -40,7 +40,7 @@ npm run build
 {
   "default_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...",
   "socket_key": "changeme123",
-  "admin_ips": ["127.0.0.1", "::1"],
+  "admin_ips": ["127.0.0.1", "123.123.123.123"],
   "proxy": null
 }
 ```
