@@ -96,18 +96,7 @@ npm run build
 npm start
 ```
 
-<<<<<<< HEAD
 Server starts on `http://0.0.0.0:80` by default. Override with env vars:
-=======
-### Docker
-
-```bash
-docker build -t BITM-NG .
-docker run -d -p 3000:3000 --name bitm BITM-NG
-```
-
-Server starts on `http://0.0.0.0:3000` by default. Override with env vars:
->>>>>>> dd90b35bf13b4f9b97920a06d780d421809b3356
 
 ```bash
 PORT=8080 HOST=127.0.0.1 npm start
