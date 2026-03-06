@@ -6,11 +6,11 @@ This file is for AI assistants working on this project. Read it fully before mak
 
 ## What this is
 
-BITM-NG is a **Browser-in-the-Middle (BitM) phishing framework** used by professional red teamers. A headless Chromium browser runs server-side, the victim sees a real-time canvas stream of it, and their mouse/keyboard input is forwarded to the browser. The operator (admin) can monitor sessions, steal credentials/cookies, and take over the browser in real time.
+BITM-NG is a **Browser-in-the-Middle (BitM) session recording tool** used by professional sysadmins for IR. A headless Chromium browser runs server-side, the user sees a real-time canvas stream of it, and their mouse/keyboard input is forwarded to the browser. The operator (admin) can monitor sessions, and take over the browser in real time to prevent loss.
 
 This is a TypeScript rewrite of the original BITM-NG (Node.js/Puppeteer/WebRTC). The core architectural change:
-- **Old:** XVFB → Chromium → `getDisplayMedia()` → WebRTC → victim `<video>`
-- **New:** Playwright headless Chromium → CDP `Page.startScreencast` → Socket.IO binary → victim `<canvas>`
+- **Old:** XVFB → Chromium → `getDisplayMedia()` → WebRTC → user `<video>`
+- **New:** Playwright headless Chromium → CDP `Page.startScreencast` → Socket.IO binary → user `<canvas>`
 
 ---
 
