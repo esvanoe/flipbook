@@ -1,5 +1,6 @@
 import type { CDPSession, Frame } from 'playwright';
 import type { BrowserInstance } from './types.js';
+import { recordFrame } from './metrics.js';
 
 export const SCREENCAST_MAX_WIDTH = 3840;
 export const SCREENCAST_MAX_HEIGHT = 2160;
@@ -51,6 +52,9 @@ export async function startScreencast(
 
         // Convert base64 to Buffer
         const buf = Buffer.from(data, 'base64');
+
+        // Record frame for metrics
+        recordFrame(instance.id);
 
         // Dispatch frame via mutable callback (swapped during admin takeover)
         instance.onFrame(buf);

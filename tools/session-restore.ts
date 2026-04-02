@@ -40,7 +40,7 @@ function parseArgs(): {
 }
 
 async function main(): Promise<void> {
-  console.log('\n=== BITM-NG: Session Restore ===\n');
+  console.log('\n=== Flipbook: Session Restore ===\n');
 
   const args = parseArgs();
 

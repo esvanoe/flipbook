@@ -1,5 +1,5 @@
 {
-  "name": "bitm-ng",
+  "name": "flipbook",
   "version": "2.0.0",
   "description": "Browser-in-the-Middle phishing framework — TypeScript rewrite",
   "type": "module",

@@ -1,4 +1,4 @@
-# BITM-NG
+# Flipbook
 
 Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of CuddlePhish.
 

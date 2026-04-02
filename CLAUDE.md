@@ -1,4 +1,4 @@
-# CLAUDE.md — BITM-NG
+# CLAUDE.md — Flipbook
 
 This file is for AI assistants working on this project. Read it fully before making changes.
 
@@ -6,9 +6,9 @@ This file is for AI assistants working on this project. Read it fully before mak
 
 ## What this is
 
-BITM-NG is a **Browser-in-the-Middle (BitM) session recording tool** used by professional sysadmins for IR. A headless Chromium browser runs server-side, the user sees a real-time canvas stream of it, and their mouse/keyboard input is forwarded to the browser. The operator (admin) can monitor sessions, and take over the browser in real time to prevent loss.
+Flipbook is a **Browser-in-the-Middle (BitM) session recording tool** used by professional sysadmins for IR. A headless Chromium browser runs server-side, the user sees a real-time canvas stream of it, and their mouse/keyboard input is forwarded to the browser. The operator (admin) can monitor sessions, and take over the browser in real time to prevent loss.
 
-This is a TypeScript rewrite of the original BITM-NG (Node.js/Puppeteer/WebRTC). The core architectural change:
+This is a TypeScript rewrite of the original Flipbook (Node.js/Puppeteer/WebRTC). The core architectural change:
 - **Old:** XVFB → Chromium → `getDisplayMedia()` → WebRTC → user `<video>`
 - **New:** Playwright headless Chromium → CDP `Page.startScreencast` → Socket.IO binary → user `<canvas>`
 
@@ -229,8 +229,8 @@ npm start
 
 Docker:
 ```bash
-docker build -t bitm-ng .
-docker run -d -p 3000:3000 bitm-ng
+docker build -t flipbook .
+docker run -d -p 3000:3000 flipbook
 ```
 
 Environment variables: `PORT` (default 3000), `HOST` (default 0.0.0.0).

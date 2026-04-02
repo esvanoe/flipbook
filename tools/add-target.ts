@@ -20,7 +20,7 @@ async function loadTargets(): Promise<Record<string, unknown>> {
 }
 
 async function main(): Promise<void> {
-  console.log('\n=== BITM-NG: Add Target ===\n');
+  console.log('\n=== Flipbook: Add Target ===\n');
 
   const key = await input({
     message: 'Target key (used in payload URL ?t=<key>):',
