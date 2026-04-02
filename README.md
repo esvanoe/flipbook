@@ -36,6 +36,12 @@ npm run build
 
 ### config.json
 
+Copy `config.example.json` to `config.json` and customize:
+
+```bash
+cp config.example.json config.json
+```
+
 ```json
 {
   "default_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...",
