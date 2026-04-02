@@ -1,5 +1,7 @@
 # Flipbook
 
+# --WIP, Do Not Deploy As Is--
+
 Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of CuddlePhish.
 
 **Architecture:** Playwright headless Chromium → CDP `Page.startScreencast` → Socket.IO binary frames → victim `<canvas>` via `createImageBitmap()`. No XVFB. No WebRTC. No STUN/TURN.
