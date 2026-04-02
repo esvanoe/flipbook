@@ -18,7 +18,7 @@ Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of Cuddle
 
 ```bash
 # Clone / unzip to server
-cd bitm-ng
+cd flipbook
 
 # Install Node deps
 npm install
@@ -107,8 +107,8 @@ PORT=8080 HOST=127.0.0.1 npm start
 > **Note:** `config.json`, `targets.json`, and `payload.txt` are gitignored — create them locally before building.
 
 ```bash
-docker build -t bitm-ng .
-docker run -d -p 3000:3000 --name bitm-ng bitm-ng
+docker build -t flipbook .
+docker run -d -p 3000:3000 --name flipbook flipbook
 ```
 
 The Docker image sets `PORT=3000` internally; the container listens on port 3000.
