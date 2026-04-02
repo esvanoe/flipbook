@@ -40,3 +40,6 @@ bitm-nf/
 # OS
 .DS_Store
 Thumbs.db
+
+# Bob Shell working directory
+.bob/
