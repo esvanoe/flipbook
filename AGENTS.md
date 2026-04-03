@@ -1,6 +1,6 @@
-# CLAUDE.md — Flipbook
+# AGENTS.md — Flipbook
 
-This file is for AI assistants working on this project. Read it fully before making changes.
+This file is for AI assistants (Claude, GPT, Gemini, etc.) working on this project. Read it fully before making changes.
 
 ---
 

