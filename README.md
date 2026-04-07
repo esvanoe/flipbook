@@ -229,28 +229,70 @@ This opens a headed Playwright browser with the stolen session pre-loaded.
 
 ---
 
-## Reverse proxy (Caddy)
+## Reverse proxy (nginx)
 
-For production deployments, use Caddy as a TLS-terminating reverse proxy. The included `Caddyfile` is configured to:
+For production deployments, use nginx as a TLS-terminating reverse proxy. The included `nginx.conf` is configured to:
+- Redirect HTTP to HTTPS
 - Proxy all traffic to `localhost:3000` (Flipbook server)
 - Handle WebSocket upgrades (required for Socket.IO)
-- Serve static favicon files
-- Log access requests
+- Include security headers and SSL best practices
+- Log access and errors
 
-**Recommended setup:**
-1. Run Flipbook in a screen/tmux session: `screen -S flipbook npm start`
-2. Run Caddy in a Docker container:
-   ```bash
-   docker run -d \
-     --name caddy \
-     --network host \
-     -v $PWD/Caddyfile:/etc/caddy/Caddyfile \
-     -v caddy_data:/data \
-     -v caddy_config:/config \
-     caddy:latest
-   ```
+### Automated setup (recommended)
 
-Edit `Caddyfile` and replace `example.com` with your phishing domain before starting Caddy.
+Run the included setup script as root:
+
+```bash
+sudo bash setup-nginx.sh
+```
+
+This will:
+1. Install nginx and certbot
+2. Configure nginx with your domain
+3. Obtain Let's Encrypt SSL certificate
+4. Enable nginx to start on boot
+
+### Manual setup
+
+```bash
+# Install nginx and certbot
+sudo apt-get update
+sudo apt-get install -y nginx certbot python3-certbot-nginx
+
+# Copy and configure nginx
+sudo cp nginx.conf /etc/nginx/sites-available/flipbook
+sudo sed -i 's/example\.com/yourdomain.com/g' /etc/nginx/sites-available/flipbook
+sudo ln -s /etc/nginx/sites-available/flipbook /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+
+# Test and start nginx
+sudo nginx -t
+sudo systemctl enable nginx
+sudo systemctl start nginx
+
+# Obtain SSL certificate
+sudo certbot --nginx -d yourdomain.com
+
+# Reload nginx
+sudo systemctl reload nginx
+```
+
+### Certificate renewal
+
+Certbot automatically sets up a systemd timer for renewal. Test it with:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+### Useful commands
+
+```bash
+sudo systemctl status nginx              # Check nginx status
+sudo systemctl reload nginx              # Reload config after changes
+sudo tail -f /var/log/nginx/flipbook-access.log  # View access logs
+sudo tail -f /var/log/nginx/flipbook-error.log   # View error logs
+```
 
 ---
 

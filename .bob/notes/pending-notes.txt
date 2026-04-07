@@ -1,1 +1,3 @@
-{"id":"392fb277-5310-4fe6-9b3d-ba5a7ab418fc","ts":"2026-04-03T15:28:37.295Z","path":"/home/greentip/bobCode/flipbook/src/server.ts","version":"1.0.0","taskID":"79d76998-2a45-4266-aa49-127974f86525"}
+{"id":"c9517e72-d5db-4d7d-91e0-969db98ab222","ts":"2026-04-07T15:35:52.832Z","path":"/home/greentip/bobCode/flipbook/nginx.conf","version":"1.0.0","taskID":"dc08c913-abe8-4f57-90b9-ed4fa07a895e"}
+{"id":"bbe9d9d7-5c59-425b-bc22-4973a596ae7f","ts":"2026-04-07T15:36:04.530Z","path":"/home/greentip/bobCode/flipbook/setup-nginx.sh","version":"1.0.0","taskID":"dc08c913-abe8-4f57-90b9-ed4fa07a895e"}
+{"id":"fb846fdc-140c-4ee4-a982-e466ebc23764","ts":"2026-04-07T15:36:21.848Z","path":"/home/greentip/bobCode/flipbook/README.md","version":"1.0.0","taskID":"dc08c913-abe8-4f57-90b9-ed4fa07a895e"}
