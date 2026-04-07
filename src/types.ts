@@ -20,6 +20,12 @@ export interface Config {
   
   /** Optional HTTP/HTTPS proxy server URL (e.g., 'http://proxy.example.com:8080') */
   proxy: string | null;
+  
+  /** Port number to bind the server to (default: 3000) */
+  port?: number;
+  
+  /** Target name from targets.json to load for all victims */
+  target: string;
 }
 
 /**

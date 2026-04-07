@@ -50,17 +50,14 @@ async function loadTargets(): Promise<Record<string, unknown>> {
 async function main(): Promise<void> {
   console.log('\n=== Flipbook: Add Target ===\n');
 
-  // Prompt for target key (used in phishing URLs)
-  const key = await input({
-    message: 'Target key (used in payload URL ?t=<key>):',
+  // Prompt for target name (used as key in targets.json and config.json)
+  const name = await input({
+    message: 'Target name (will be used in config.json):',
     validate: (v) => v.trim().length > 0 || 'Required',
   });
 
-  // Prompt for display name (shown in admin UI)
-  const name = await input({
-    message: 'Display name:',
-    default: key,
-  });
+  // Use name as the key
+  const key = name.trim();
 
   // Prompt for target URL (must be valid URL)
   const url = await input({
@@ -121,7 +118,7 @@ async function main(): Promise<void> {
   // Save to targets.json with pretty formatting
   await writeFile(TARGETS_PATH, JSON.stringify(targets, null, 2), 'utf-8');
   console.log(`\nTarget "${key}" saved to targets.json`);
-  console.log(`\nPayload URL param: ?t=${key}&k=<socket_key>`);
+  console.log(`\nTo use this target, add to config.json: "target": "${key}"`);
 }
 
 // Run main function and handle errors

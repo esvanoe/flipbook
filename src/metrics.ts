@@ -1,4 +1,4 @@
-import { memoryUsage, cpus } from 'os';
+import os from 'os';
 import type { BrowserInstance } from './types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -104,7 +104,7 @@ export function getSystemMetrics(
   activeInstances: BrowserInstance[],
   maxVictims: number,
 ): SystemMetrics {
-  const mem = memoryUsage();
+  const mem = process.memoryUsage();
   const totalMemory = getTotalSystemMemory();
   const memUsageMB = Math.round(mem.rss / 1024 / 1024);
   const memTotalMB = Math.round(totalMemory / 1024 / 1024);
@@ -332,7 +332,7 @@ function getCpuUsagePercent(): number {
  */
 function getTotalSystemMemory(): number {
   // Use Node.js built-in to get actual system memory
-  return require('os').totalmem();
+  return os.totalmem();
 }
 
 /**

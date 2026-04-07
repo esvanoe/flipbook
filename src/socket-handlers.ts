@@ -92,7 +92,7 @@ export function registerSocketHandlers(io: IoServer, targets: Record<string, Tar
 function handleAdminConnect(
   io: IoServer,
   socket: AppSocket,
-  targets: Record<string, Target>,
+  _targets: Record<string, Target>,
 ): void {
   // Join 'admin' room for broadcast messages (thumbnails, new victims, etc.)
   void socket.join('admin');
