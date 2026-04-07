@@ -12,7 +12,8 @@ Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of Cuddle
 
 - Node.js 22 LTS
 - Debian/Ubuntu host (Playwright's `--with-deps` installs Chromium system libs)
-- OR Docker
+- screen or tmux (for persistent sessions)
+- Docker (optional, for running Caddy reverse proxy)
 
 ---
 
@@ -126,6 +127,8 @@ npm run dev
 
 ### Production
 
+Build and start the server:
+
 ```bash
 npm run build
 npm start
@@ -137,16 +140,23 @@ Server starts on `http://0.0.0.0:3000` by default (configured in `config.json`).
 PORT=8080 HOST=127.0.0.1 npm start
 ```
 
-### Docker
-
-> **Note:** `config.json`, `targets.json`, and `payload.txt` are gitignored — create them locally before building.
+**Running in screen/tmux (recommended for production):**
 
 ```bash
-docker build -t flipbook .
-docker run -d -p 3000:3000 --name flipbook flipbook
+# Using screen
+screen -S flipbook
+npm start
+# Detach: Ctrl+A, D
+# Reattach: screen -r flipbook
+
+# Using tmux
+tmux new -s flipbook
+npm start
+# Detach: Ctrl+B, D
+# Reattach: tmux attach -t flipbook
 ```
 
-The Docker image sets `PORT=3000` internally; the container listens on port 3000.
+This ensures the server survives SSH disconnections and continues running in the background.
 
 ---
 
@@ -221,11 +231,26 @@ This opens a headed Playwright browser with the stolen session pre-loaded.
 
 ## Reverse proxy (Caddy)
 
-Edit `Caddyfile`, replace `example.com` with your domain. The Caddyfile proxies to `localhost:3000` — ensure `PORT=3000` is set when running the server, then:
+For production deployments, use Caddy as a TLS-terminating reverse proxy. The included `Caddyfile` is configured to:
+- Proxy all traffic to `localhost:3000` (Flipbook server)
+- Handle WebSocket upgrades (required for Socket.IO)
+- Serve static favicon files
+- Log access requests
 
-```bash
-caddy run --config Caddyfile
-```
+**Recommended setup:**
+1. Run Flipbook in a screen/tmux session: `screen -S flipbook npm start`
+2. Run Caddy in a Docker container:
+   ```bash
+   docker run -d \
+     --name caddy \
+     --network host \
+     -v $PWD/Caddyfile:/etc/caddy/Caddyfile \
+     -v caddy_data:/data \
+     -v caddy_config:/config \
+     caddy:latest
+   ```
+
+Edit `Caddyfile` and replace `example.com` with your phishing domain before starting Caddy.
 
 ---
 
