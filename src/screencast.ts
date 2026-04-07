@@ -162,6 +162,7 @@ export async function startScreencast(
       // Ignore — session may already be detached
     }
     try {
+      // Detach automatically removes all CDP event listeners
       await currentSession.detach();
     } catch {
       // Ignore — session may already be detached
@@ -178,7 +179,7 @@ export async function startScreencast(
    * 
    * We only restart for main frame navigation (not iframe navigation).
    */
-  instance.page.on('framenavigated', (frame: Frame) => {
+  const frameNavigatedHandler = (frame: Frame) => {
     // Only restart for main frame (not iframes)
     if (frame.parentFrame() !== null) return;
     if (!active) return;
@@ -187,7 +188,9 @@ export async function startScreencast(
     void stopCurrentSession().then(() => {
       void startSession();
     });
-  });
+  };
+  
+  instance.page.on('framenavigated', frameNavigatedHandler);
 
   // Start initial screencast
   await startSession();
@@ -196,6 +199,8 @@ export async function startScreencast(
   return {
     async stop() {
       active = false;
+      // Remove framenavigated listener
+      instance.page.off('framenavigated', frameNavigatedHandler);
       await stopCurrentSession();
     },
   };

