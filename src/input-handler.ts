@@ -210,9 +210,9 @@ export async function handlePaste(
 ): Promise<void> {
   try {
     // Brief pause so any preceding mouse_click has time to focus the target field
-    await new Promise((r) => setTimeout(r, 150));
-    // Type with 20ms delay between characters for more natural appearance
-    await instance.page.keyboard.type(data.text, { delay: 20 });
+    await new Promise((r) => setTimeout(r, 120));
+    // Type with 7ms delay between characters for more natural appearance
+    await instance.page.keyboard.type(data.text, { delay: 7 });
   } catch {
     // Ignore errors (page may have closed)
   }

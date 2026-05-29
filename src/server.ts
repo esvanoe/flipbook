@@ -99,6 +99,7 @@ async function main(): Promise<void> {
       level: 'info',
       transport: { target: 'pino-pretty', options: { colorize: true } },
     },
+    trustProxy: true, // Trust X-Forwarded-For headers from nginx
   });
 
   // Serve static files (HTML, CSS, JS) from public/ directory
@@ -177,7 +178,11 @@ async function main(): Promise<void> {
    */
   io.use((socket, next) => {
     const auth = socket.handshake.auth as { password?: string; isAdmin?: boolean };
-    const ip = socket.handshake.address;
+    // Get real IP from X-Forwarded-For header (set by nginx) or fall back to socket address
+    const forwardedFor = socket.handshake.headers['x-forwarded-for'];
+    const ip = forwardedFor 
+      ? (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0].trim())
+      : socket.handshake.address;
 
     if (auth.isAdmin) {
       // Admin authentication: check IP whitelist AND socket key
