@@ -1,0 +1,9 @@
+{"id":"ca36de1f-b684-4c24-9848-952f9065486a","ts":"2026-05-29T19:45:10.437Z","path":"/opt/flipbook/setup-nginx-fixed.sh","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"93e5e634-be28-4e0c-9ca2-d24b20c5df11","ts":"2026-05-29T20:01:24.807Z","path":"/opt/flipbook/src/input-handler.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"edfbefe0-ebd7-4386-ab97-091cb561a7e4","ts":"2026-05-29T20:11:29.726Z","path":"/opt/flipbook/src/input-handler.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"0ce2ead5-6d56-46c2-a5f8-55fc95c114e8","ts":"2026-05-29T20:12:15.725Z","path":"/opt/flipbook/src/input-handler.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"177dda00-ae6e-4d1d-af32-1de8fb7a990a","ts":"2026-05-29T20:13:57.443Z","path":"/opt/flipbook/src/input-handler.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"5d48f577-42f4-4815-aa08-97ecf1afd77a","ts":"2026-05-29T20:15:18.337Z","path":"/opt/flipbook/src/server.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"dbadcd51-904a-4e0e-a041-8acfecbce1e7","ts":"2026-05-29T20:15:31.071Z","path":"/opt/flipbook/src/server.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"6aca0127-5585-4861-ae6f-3200ff343ba6","ts":"2026-05-29T20:19:48.866Z","path":"/opt/flipbook/src/socket-handlers.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
+{"id":"52a9270c-1572-4e86-8f9c-c7c88e269bfc","ts":"2026-05-29T20:19:54.653Z","path":"/opt/flipbook/src/socket-handlers.ts","version":"1.0.0","taskID":"36dc7203-1163-4628-8277-c29c1fb6dd99"}
