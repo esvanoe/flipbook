@@ -1,8 +1,8 @@
 # Flipbook
 
-# --WIP, Do Not Deploy As Is--
 
-Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of CuddlePhish.
+
+Browser-in-the-Middle (BitM) phishing framework — Inspired by Cuddlephish
 
 **Architecture:** Playwright headless Chromium → CDP `Page.startScreencast` → Socket.IO binary frames → victim `<canvas>` via `createImageBitmap()`. No XVFB. No WebRTC. No STUN/TURN.
 
@@ -13,7 +13,7 @@ Browser-in-the-Middle (BitM) phishing framework — TypeScript rewrite of Cuddle
 - Node.js 22 LTS
 - Debian/Ubuntu host (Playwright's `--with-deps` installs Chromium system libs)
 - screen or tmux (for persistent sessions)
-- Docker (optional, for running Caddy reverse proxy)
+- Nginx / LE certs (or bring your own plan)
 
 ---
 
