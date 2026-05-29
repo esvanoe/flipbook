@@ -245,7 +245,7 @@ For production deployments, use nginx as a TLS-terminating reverse proxy. The in
 Run the included setup script as root:
 
 ```bash
-sudo bash setup-nginx-fixed.sh
+sudo bash setup-nginx.sh
 ```
 
 This will:
