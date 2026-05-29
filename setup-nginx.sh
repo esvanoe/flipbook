@@ -1,6 +1,6 @@
 #!/bin/bash
-# Flipbook nginx setup script
-# Run as root: sudo bash setup-nginx.sh
+# Flipbook nginx setup script (FIXED)
+# Run as root: sudo bash setup-nginx-fixed.sh
 
 set -e
 
@@ -39,18 +39,42 @@ if [ "$CONFIRM" != "y" ]; then
 fi
 
 echo ""
-echo "[1/6] Installing nginx..."
+echo "[1/7] Installing nginx..."
 apt-get update
 apt-get install -y nginx
 
 echo ""
-echo "[2/6] Installing certbot..."
+echo "[2/7] Installing certbot..."
 apt-get install -y certbot python3-certbot-nginx
 
 echo ""
-echo "[3/6] Configuring nginx..."
-# Replace example.com with actual domain in nginx.conf
-sed "s/example\.com/$DOMAIN/g" nginx.conf > /etc/nginx/sites-available/flipbook
+echo "[3/7] Creating temporary HTTP-only nginx config..."
+# Create HTTP-only config first (no SSL)
+cat > /etc/nginx/sites-available/flipbook << EOF
+# Flipbook nginx configuration (temporary HTTP-only for certificate acquisition)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+    
+    # Allow ACME challenge for Let's Encrypt
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    # Temporary: proxy to Flipbook (will redirect to HTTPS after cert is obtained)
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
 
 # Enable site
 ln -sf /etc/nginx/sites-available/flipbook /etc/nginx/sites-enabled/flipbook
@@ -58,20 +82,28 @@ ln -sf /etc/nginx/sites-available/flipbook /etc/nginx/sites-enabled/flipbook
 # Remove default site if it exists
 rm -f /etc/nginx/sites-enabled/default
 
-# Test nginx config
+# Test nginx config (should work now - no SSL yet)
 nginx -t
 
 echo ""
-echo "[4/6] Starting nginx..."
+echo "[4/7] Starting nginx..."
 systemctl enable nginx
 systemctl restart nginx
 
 echo ""
-echo "[5/6] Obtaining SSL certificate..."
+echo "[5/7] Obtaining SSL certificate..."
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL"
 
 echo ""
-echo "[6/6] Reloading nginx with SSL..."
+echo "[6/7] Creating final nginx config with SSL..."
+# Now create the full config with SSL (certbot should have already added SSL, but we'll ensure it's correct)
+sed "s/example\.com/$DOMAIN/g" nginx.conf > /etc/nginx/sites-available/flipbook
+
+# Test the new config
+nginx -t
+
+echo ""
+echo "[7/7] Reloading nginx with SSL..."
 systemctl reload nginx
 
 echo ""
