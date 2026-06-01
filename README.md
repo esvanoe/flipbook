@@ -213,6 +213,35 @@ To change the target, update `config.json` and restart the server.
 
 **Note:** Victims do not need authentication — they simply visit the root URL and are automatically connected to the configured target.
 
+### ⚠️ Takeover Behavior & Limitations
+
+**How Takeover Works:**
+- Admin receives full frame stream and can send input
+- Victim's frame rendering is frozen at last frame before takeover
+- Victim sees subtle "Processing..." overlay with spinner (looks like normal site behavior)
+- Victim's input is blocked server-side
+- Admin sees real-time browser state and can interact normally
+
+**Returning Control:**
+- Admin clicks "Give Back Control" button
+- Server clears admin as controller
+- Victim receives `control_returned` event (removes overlay)
+- Victim input is unblocked
+- Frame routing returns to victim-only
+
+**Important Considerations:**
+- **Socket stays open:** The victim's WebSocket connection remains active during takeover
+- **Control is reversible:** You can give back control multiple times in a session
+- **Stealth mode:** For demos, disable the overlay in `public/victim.html` (lines 121-123) to make takeover invisible
+- **"Stunt hacking" use case:** Takeover is most effective as a demo finale or for critical interventions, not continuous control
+- **Input blocking:** Victim input is blocked server-side via `instance.controllerSocket` check, not client-side
+
+**Best Practices:**
+- Use takeover sparingly (high "wow factor" but can alert observant victims)
+- For executive demos, consider disabling the overlay for seamless takeover
+- Test the give-back flow before live demos to ensure smooth transitions
+- Monitor victim metrics (FPS, latency) during takeover for performance issues
+
 ---
 
 ## Session restore

